@@ -1,0 +1,1024 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Diagnósticos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            /* Degradado de fondo: Blanco puro al verde #9aeeb2 */
+            background: linear-gradient(to bottom right, #ffffff, #9aeeb2); 
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            color: #1a202c; /* Color de texto general: Negro oscuro para mejor legibilidad */
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        
+        /* Contenedor principal para ocupar todo el ancho */
+        .full-width-container {
+            max-width: none; 
+            width: 96%; 
+            margin-left: auto;
+            margin-right: auto;
+            padding: 2rem; 
+            flex-grow: 1; 
+        }
+
+        /* Título principal con el color personalizado */
+        .main-title-highlight {
+            color: #9aeeb2; 
+        }
+
+        /* Títulos de los modales y otros elementos con el color */
+        .text-custom-highlight {
+            color: #9aeeb2; 
+        }
+
+        /* Botón de añadir nuevo diagnóstico */
+        .btn-add-diagnostic {
+            background-color: #9aeeb2;
+            color: #1a202c; /* Texto oscuro para contrastar con el verde claro */
+            font-weight: 700;
+        }
+        .btn-add-diagnostic:hover {
+            background-color: #7ddc99; /* Un tono un poco más oscuro al pasar el ratón */
+            transform: scale(1.05);
+        }
+
+        /* Botones de acción en la tabla (editar, ver tratamiento) */
+        .btn-action-icon {
+            color: #9aeeb2;
+        }
+        .btn-action-icon:hover {
+            color: #7ddc99; /* Un tono un poco más oscuro al pasar el ratón */
+            transform: scale(1.15);
+        }
+
+        /* Inputs y textareas */
+        input[type="text"],
+        input[type="date"],
+        textarea {
+            color: #1f2937; /* Mantener color oscuro para inputs */
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) para inputs */
+        }
+
+        /* Asegurar que las celdas de la tabla tengan el tamaño de fuente general y el espaciado vertical */
+        .table-cell-text {
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+            padding-top: 0.75rem; /* py-3 en Tailwind equivale a 0.75rem */
+            padding-bottom: 0.75rem; /* py-3 en Tailwind equivale a 0.75rem */
+            vertical-align: top; /* Alinea el contenido en la parte superior si es más de una línea */
+        }
+
+        /* Ocultar flecha nativa del datalist */
+        input[type="text"]::-webkit-calendar-picker-indicator {
+            display: none !important;
+            -webkit-appearance: none !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            position: absolute !important;
+            right: 0 !important;
+            width: 1px !important;
+        }
+        input[type="text"]::-moz-calendar-picker-indicator {
+            display: none !important;
+            -moz-appearance: none !important;
+        }
+        input[type="text"]::-ms-expand {
+            display: none !important;
+        }
+
+        /* Aseguramos que el input[type="date"] SÍ tenga sus indicadores visibles */
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="date"]::-moz-calendar-picker-indicator,
+        input[type="date"]::-ms-expand {
+            display: initial !important;
+            -webkit-appearance: auto !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            position: static !important;
+            width: auto !important;
+        }
+
+        /* Estilos para el Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: #fefefe;
+            margin: auto;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 700px; 
+            position: relative;
+            animation: fadeIn 0.3s ease-out;
+            max-height: 90vh; 
+            overflow-y: auto; 
+        }
+
+        /* Estilos para el Modal de Tratamiento (nuevo) */
+        #treatmentModal {
+            display: none;
+            position: fixed;
+            z-index: 1001; 
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.5); 
+            justify-content: center;
+            align-items: center;
+        }
+        #treatmentModal .modal-content {
+            max-width: 500px;
+            padding: 25px;
+            text-align: center;
+        }
+        #treatmentModal .close-button {
+            top: 10px;
+            right: 15px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .close-button {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            cursor: pointer;
+        }
+
+        .close-button:hover,
+        .close-button:focus {
+            color: #333;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        /* Estilos para los bloques desplegables (Acordeón) */
+        .accordion-header {
+            background-color: #f0f0f0;
+            color: #1a202c; /* Color de texto negro */
+            cursor: pointer;
+            padding: 15px 20px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 1.125rem; /* CAMBIADO: a text-lg (18px) para encabezados de acordeón */
+            font-weight: 600; 
+            transition: background-color 0.3s ease;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px; 
+        }
+
+        .accordion-header:hover {
+            background-color: #e0e0e0;
+        }
+
+        .accordion-header.active {
+            background-color: #d1d5db; 
+        }
+
+        .accordion-content {
+            padding: 0 18px;
+            background-color: white;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            margin-bottom: 15px;
+        }
+
+        .accordion-content.open {
+            max-height: 700px; /* Suficientemente grande para el contenido */
+            padding: 15px 18px;
+            border-radius: 6px; 
+        }
+        
+        .accordion-icon {
+            transition: transform 0.3s ease;
+        }
+        .accordion-header.active .accordion-icon {
+            transform: rotate(90deg); 
+        }
+
+        /* Estilos para la paginación */
+        .pagination-controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-top: 1.5rem; 
+        }
+        .pagination-button {
+            background-color: #e5e7eb; /* Fondo por defecto: gris claro */
+            color: #4b5563; /* Color de texto por defecto */
+            font-weight: 600; 
+            padding: 0.5rem 1rem; 
+            border-radius: 0.5rem; 
+            transition: all 0.2s ease-in-out;
+            margin: 0 0.25rem; 
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        .pagination-button:hover:not(:disabled) {
+            background-color: #d1d5db; /* Gris un poco más oscuro al pasar el ratón */
+            transform: scale(1.05);
+        }
+        .pagination-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        /* Solo la página activa tiene el color verde */
+        .pagination-button.active-page {
+            background-color: #9aeeb2; 
+            color: #1a202c; /* Texto oscuro para contrastar */
+        }
+        .pagination-button.active-page:hover {
+            background-color: #7ddc99; /* Tono más oscuro al pasar el ratón */
+        }
+
+        .pagination-info {
+            margin: 0 1rem; 
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+            color: #4b5563; 
+        }
+        /* Encabezados de la tabla */
+        table thead th {
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        /* Botón de añadir nuevo diagnóstico */
+        .btn-add-diagnostic {
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        /* Campos de búsqueda y filtro */
+        #searchInput, #filterDateInput {
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        /* Botones de ordenamiento */
+        #sortDateAscBtn, #sortDateDescBtn, #sortPatientAscBtn, #sortPatientDescBtn {
+            font-size: 1rem; /* CAMBIADO: a text-base (16px) */
+        }
+        /* Títulos dentro de los modales */
+        #modalTitle, #treatmentModal h3 {
+            font-size: 1.5rem; /* text-2xl a text-xl */
+        }
+        /* Texto dentro de los modales y labels */
+        .modal-content label, .modal-content p, #treatmentContentDisplay, #treatmentPatientName {
+            font-size: 0.9375rem; /* text-base a text-sm para elementos de formulario y descripción */
+        }
+        /* Tamaño de los iconos en la tabla */
+        .btn-action-icon .fa-solid {
+            font-size: 1.125rem; /* text-xl a text-lg */
+        }
+        /* Título principal H1 */
+        h1 {
+            font-size: 2rem; /* text-3xl a text-2xl */
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="full-width-container bg-white rounded-lg shadow-xl border border-gray-200">
+        <h1 class="text-3xl font-bold text-center main-title-highlight mb-8">Gestión de Diagnósticos Médicos</h1>
+
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <button id="openModalBtn" class="py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center text-lg btn-add-diagnostic">
+                <i class="fa-solid fa-plus-circle mr-2"></i>
+                Añadir Nuevo Diagnóstico
+            </button>
+
+            <div class="flex flex-wrap items-center gap-4 flex-grow justify-end">
+                <div class="relative w-full md:w-auto flex-grow md:flex-grow-0">
+                    <input type="text" id="searchInput" placeholder="Buscar por texto..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 w-full text-lg">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-base"></i>
+                </div>
+                <div class="relative w-full md:w-auto flex-grow md:flex-grow-0">
+                    <input type="date" id="filterDateInput" class="py-2 px-3 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 w-full text-lg">
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mt-4 md:mt-0 w-full md:w-auto justify-end">
+                <button id="sortDateAscBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg text-lg transition duration-200 ease-in-out">
+                    Fecha (Antiguo <i class="fa-solid fa-arrow-up"></i>)
+                </button>
+                <button id="sortDateDescBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg text-lg transition duration-200 ease-in-out">
+                    Fecha (Reciente <i class="fa-solid fa-arrow-down"></i>)
+                </button>
+                <button id="sortPatientAscBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg text-lg transition duration-200 ease-in-out">
+                    Paciente (A <i class="fa-solid fa-arrow-up"></i> Z)
+                </button>
+                <button id="sortPatientDescBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg text-lg transition duration-200 ease-in-out">
+                    Paciente (Z <i class="fa-solid fa-arrow-down"></i> A)
+                </button>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white border border-gray-200 rounded-lg">
+                <thead>
+                    <tr class="bg-gray-100 text-gray-700 uppercase text-lg leading-normal">
+                        <th class="py-3 px-6 text-left">Paciente</th>
+                        <th class="py-3 px-6 text-left">Diagnóstico</th>
+                        <th class="py-3 px-6 text-left">Fecha</th>
+                        <th class="py-3 px-6 text-left">Médico</th>
+                        <th class="py-3 px-6 text-center">Tratamiento</th> 
+                        <th class="py-3 px-6 text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="diagnosticsTableBody" class="text-gray-600 font-light">
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-6 text-left whitespace-nowrap table-cell-text" colspan="6">
+                            <p class="text-center text-gray-500 italic">No hay diagnósticos registrados aún. ¡Añade uno!</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div id="paginationControls" class="pagination-controls hidden">
+            <button id="prevPageBtn" class="pagination-button">Anterior</button>
+            <div id="pageNumbers" class="flex">
+                </div>
+            <button id="nextPageBtn" class="pagination-button">Siguiente</button>
+        </div>
+    </div>
+
+    <div id="diagnosticModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeModalBtn">&times;</span>
+            <h2 id="modalTitle" class="text-2xl font-bold text-center text-custom-highlight mb-6">Crear Nuevo Diagnóstico</h2>
+
+            <form id="diagnosticForm" class="mt-5 space-y-5">
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header active" data-target="patientContent">
+                        1. Datos del Paciente
+                        <i class="fa-solid fa-chevron-right accordion-icon"></i>
+                    </button>
+                    <div id="patientContent" class="accordion-content open">
+                        <p class="text-gray-700 mb-4">Introduce el nombre del paciente:</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="nombrePaciente" class="block font-semibold text-gray-700">Nombre del Paciente</label>
+                                <input type="text" id="nombrePaciente" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" placeholder="Ej. Juan Pérez" pattern="[A-Za-zñÑáéíóúÁÉÍÓÚ\s-']+" title="Solo se permiten letras, espacios, guiones y apóstrofes." required>
+                                <p id="pacienteError" class="text-red-600 text-base mt-1 hidden font-medium">El nombre del paciente solo puede contener letras, espacios, guiones y apóstrofes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" data-target="doctorContent">
+                        2. Información del Médico
+                        <i class="fa-solid fa-chevron-right accordion-icon"></i>
+                    </button>
+                    <div id="doctorContent" class="accordion-content">
+                        <p class="text-gray-700 mb-4">Selecciona o introduce el médico y su especialidad:</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="medicoDiagnostico" class="block font-semibold text-gray-700">Médico que Diagnóstico</label>
+                                <input type="text" id="medicoDiagnostico" list="doctoresList" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" required>
+                                <datalist id="doctoresList"></datalist>
+                                <p id="medicoError" class="text-red-600 text-base mt-1 hidden font-medium">El médico no se encuentra registrado en el hospital.</p>
+                            </div>
+                            <div id="medicoEspecialidadDisplay" class="mt-2 text-gray-600 hidden">
+                                Especialidad: <span id="medicoEspecialidadValue" class="font-medium"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <button type="button" class="accordion-header" data-target="diagnosticContent">
+                        3. Detalles del Diagnóstico y Tratamiento
+                        <i class="fa-solid fa-chevron-right accordion-icon"></i>
+                    </button>
+                    <div id="diagnosticContent" class="accordion-content">
+                        <p class="text-gray-700 mb-4">Completa los detalles del diagnóstico y el tratamiento:</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="nombreDiagnostico" class="block font-semibold text-gray-700">Nombre del Diagnóstico</label>
+                                <input type="text" id="nombreDiagnostico" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" required>
+                            </div>
+                            <div>
+                                <label for="fechaDiagnostico" class="block font-semibold text-gray-700">Fecha del Diagnóstico</label>
+                                <input type="date" id="fechaDiagnostico" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" required>
+                            </div>
+                            <div>
+                                <label for="descripcionDiagnostico" class="block font-semibold text-gray-700">Descripción</label>
+                                <textarea id="descripcionDiagnostico" rows="4" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" required></textarea>
+                            </div>
+                            <div>
+                                <label for="tratamientoDiagnostico" class="block font-semibold text-gray-700">Tratamiento Recomendado</label>
+                                <textarea id="tratamientoDiagnostico" rows="3" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50" required></textarea>
+                            </div>
+                            <div>
+                                <label for="notasDiagnostico" class="block font-semibold text-gray-700">Notas Adicionales (Opcional)</label>
+                                <textarea id="notasDiagnostico" rows="6" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center gap-4 mt-6">
+                    <button type="button" id="btnCancelarModal" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 text-lg">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnSaveUpdateDiagnostic" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center text-lg">
+                        <i class="fa-solid fa-floppy-disk mr-2"></i>
+                        Guardar Diagnóstico
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="treatmentModal" class="modal">
+        <div class="modal-content">
+            <span class="close-button" id="closeTreatmentModalBtn">&times;</span>
+            <h3 class="text-xl font-bold text-custom-highlight mb-4">Tratamiento Detallado</h3>
+            <p id="treatmentContentDisplay" class="text-gray-800 text-lg text-left whitespace-pre-wrap"></p>
+            <p id="treatmentPatientName" class="text-gray-600 text-base mt-3 italic"></p>
+        </div>
+    </div>
+
+
+    <script>
+        // --- Datos Simulados ---
+        const doctoresRegistrados = [
+            { nombre: "Dr. Juan Pérez García", especialidad: "Cardiología" },
+            { nombre: "Dra. Ana López Martínez", especialidad: "Pediatría" },
+            { nombre: "Dr. Carlos Sánchez Ruiz", especialidad: "Medicina General" },
+            { nombre: "Dra. María Fernández Díaz", especialidad: "Dermatología" },
+            { nombre: "Dr. Luis Gómez Castro", especialidad: "Gastroenterología" },
+            { nombre: "Dra. Laura Torres Vargas", especialidad: "Oftalmología" },
+            { nombre: "Dr. Pedro Morales Castro", especialidad: "Neurología" },
+            { nombre: "Dr. Javier Ruiz Vega", especialidad: "Urología" },
+            { nombre: "Dra. Sofía Jiménez Bravo", especialidad: "Endocrinología" },
+            { nombre: "Dr. Ricardo Núñez Palma", especialidad: "Ortopedia" },
+            { nombre: "Dra. Elena Castro Soto", especialidad: "Psiquiatría" },
+            { nombre: "Dr. Miguel Ángel Mora", especialidad: "Otorrinolaringología" },
+            { nombre: "Dra. Isabel Vidal León", especialidad: "Ginecología" },
+            { nombre: "Dr. Fernando Cano Gil", especialidad: "Oncología" }
+        ];
+        
+        // Datos de ejemplo para probar la paginación (más de 7 para que haya varias páginas)
+        let diagnostics = [
+            { paciente: "Alicia Torres", diagnostico: "Gripe Común", fecha: "2025-06-15", medico: "Dra. Ana López Martínez", especialidadMedico: "Pediatría", descripcion: "Síntomas típicos de gripe, fiebre alta. Se recomienda reposo absoluto y evitar contacto con otras personas por 3 días para prevenir contagio.", tratamiento: "Descanso, hidratación constante (agua, caldos, tés), paracetamol cada 6 horas según necesidad.", notas: "Paciente respondió bien al tratamiento inicial. Se envió recordatorio para seguimiento en 5 días si los síntomas persisten. Importante monitorear temperatura." },
+            { paciente: "Benito Juárez", diagnostico: "Faringitis Bacteriana", fecha: "2025-06-10", medico: "Dr. Carlos Sánchez Ruiz", especialidadMedico: "Medicina General", descripcion: "Dolor de garganta severo, presencia de placas blanquecinas en amígdalas, dificultad al tragar y fiebre moderada. Posible origen estreptocócico.", tratamiento: "Amoxicilina 500mg cada 8 horas por 7 días, reposo vocal absoluto, gárgaras con agua salada tibia cada 4 horas.", notas: "Se educó al paciente sobre la importancia de terminar el curso de antibióticos. Sugerencia de análisis de cultivo faríngeo si no hay mejoría en 48 horas." },
+            { paciente: "Carla Mora", diagnostico: "Migraña Crónica", fecha: "2025-06-18", medico: "Dr. Juan Pérez García", especialidadMedico: "Cardiología", descripcion: "Episodios de dolor de cabeza pulsátil unilateral con aura visual (luces intermitentes) que duran varias horas. Acompañado de náuseas y fotofobia. Se ha presentado 3 veces al mes por los últimos 6 meses.", tratamiento: "Triptanos (Sumatriptán) al inicio del aura, propanolol 40mg diarios como profilaxis, evitar desencadenantes conocidos (café, estrés).", notas: "Necesita seguimiento con neurología para ajuste de dosis y evaluación de nuevas terapias. Se recomendó llevar un diario de migrañas." },
+            { paciente: "David Vargas", diagnostico: "Gastritis Aguda", fecha: "2025-06-17", medico: "Dr. Luis Gómez Castro", especialidadMedico: "Gastroenterología", descripcion: "Dolor abdominal superior, ardor, náuseas después de comidas. Asociado a consumo excesivo de AINEs en la última semana. Endoscopia mostró inflamación leve.", tratamiento: "Omeprazol 20mg una vez al día por 4 semanas, dieta blanda, evitar irritantes (cafeína, picantes).", notas: "Se explicó al paciente la relación entre AINEs y gastritis. Recomendar probióticos y reevaluación en un mes." },
+            { paciente: "Elena Soto", diagnostico: "Conjuntivitis Viral", fecha: "2025-06-16", medico: "Dra. Laura Torres Vargas", especialidadMedico: "Oftalmología", descripcion: "Enrojecimiento ocular bilateral, picazón intensa, secreción acuosa y sensación de cuerpo extraño. Posible contagio en guardería.", tratamiento: "Compresas frías, lágrimas artificiales, higiene ocular frecuente. No se requiere antibióticos.", notas: "Advertencia sobre alta contagiosidad. Se aconsejó aislamiento escolar por 7 días. Mejoría esperada en una semana." },
+            { paciente: "Felipe Naranjo", diagnostico: "Lumbalgia Crónica", fecha: "2025-06-12", medico: "Dr. Pedro Morales Castro", especialidadMedico: "Neurología", descripcion: "Dolor constante en la zona lumbar baja irradiado a glúteo derecho. Persiste por más de 3 meses. Resonancia magnética sin hallazgos significativos. Origen postural.", tratamiento: "Fisioterapia (ejercicios de fortalecimiento y estiramiento), analgésicos AINEs según necesidad, aplicación de calor local.", notas: "Se enfatizó la importancia de la corrección postural y el ejercicio regular. Referido a fisioterapeuta para plan a largo plazo." },
+            { paciente: "Gabriela Pantoja", diagnostico: "Cistitis No Complicada", fecha: "2025-06-09", medico: "Dr. Javier Ruiz Vega", especialidadMedico: "Urología", descripcion: "Disuria, polaquiuria y tenesmo vesical de inicio súbito. No fiebre ni dolor lumbar. Análisis de orina positivo para nitritos y leucocitos.", tratamiento: "Fosfomicina 3g dosis única. Aumento de ingesta de líquidos.", notas: "Se recomendó consumo de arándanos y buena higiene. Cita de seguimiento si los síntomas no desaparecen en 3 días." },
+            { paciente: "Héctor Solís", diagnostico: "Hipotiroidismo Subclínico", fecha: "2025-06-14", medico: "Dra. Sofía Jiménez Bravo", especialidadMedico: "Endocrinología", descripcion: "Fatiga, aumento de peso leve, piel seca. TSH ligeramente elevada con T4 libre normal. No hay antecedentes familiares de enfermedad tiroidea.", tratamiento: "Levotiroxina 25mcg al día, reevaluación en 6 semanas con perfil tiroideo.", notas: "Se explicó la importancia de tomar la medicación en ayunas y no con otros medicamentos. Se sugirió dieta rica en yodo." },
+            { paciente: "Isabel Rivas", diagnostico: "Esguince de Tobillo Grado I", fecha: "2025-06-11", medico: "Dr. Ricardo Núñez Palma", especialidadMedico: "Ortopedia", descripcion: "Dolor e inflamación en tobillo derecho tras caída. Ligera inestabilidad. Se descartó fractura con radiografía.", tratamiento: "Método RICE (Reposo, Hielo, Compresión, Elevación), analgésicos AINEs. Inicio de ejercicios de movilidad suave.", notas: "Recomendación de uso de tobillera elástica por 2 semanas. Evitar actividades de impacto. Fisioterapia si no hay mejoría en 10 días." },
+            { paciente: "José Alarcón", diagnostico: "Ansiedad Generalizada", fecha: "2025-06-08", medico: "Dra. Elena Castro Soto", especialidadMedico: "Psiquiatría", descripcion: "Preocupación excesiva e incontrolable sobre múltiples eventos durante al menos 6 meses. Síntomas físicos como tensión muscular, insomnio y fatiga. Impacto significativo en la vida diaria.", tratamiento: "Terapia cognitivo-conductual (TCC), sertralina 50mg al día. Técnicas de relajación.", notas: "Se acordó sesiones semanales de TCC. Se monitorizará la respuesta a la medicación en las próximas 4 semanas. Apoyo familiar es clave." },
+            { paciente: "Karen López", diagnostico: "Otitis Media Aguda", fecha: "2025-06-19", medico: "Dr. Miguel Ángel Mora", especialidadMedico: "Otorrinolaringología", descripcion: "Dolor de oído intenso, fiebre y disminución de la audición. Otoscopia reveló membrana timpánica abultada y eritematosa.", tratamiento: "Amoxicilina/ácido clavulánico 875mg/125mg cada 12 horas por 10 días. Analgésicos para el dolor.", notas: "Instrucciones sobre cómo evitar que entre agua al oído. Control en una semana para verificar resolución. Considerar miringotomía si recurrente." },
+            { paciente: "Zoe Fernández", diagnostico: "Resfriado Común", fecha: "2025-06-19", medico: "Dra. Ana López Martínez", especialidadMedico: "Pediatría", descripcion: "Estornudos, congestión nasal, tos leve. Duración esperada de 3-5 días.", tratamiento: "Reposo, líquidos, descongestionantes nasales, analgésicos para el dolor de cabeza/cuerpo.", notas: "Recomendado evitar el contacto cercano para prevenir la propagación." },
+            { paciente: "Yago Torres", diagnostico: "Dermatitis Atópica", fecha: "2025-06-18", medico: "Dra. María Fernández Díaz", especialidadMedico: "Dermatología", descripcion: "Erupciones cutáneas con picazón, sequedad y enrojecimiento en brazos y piernas.", tratamiento: "Cremas hidratantes emolientes, corticosteroides tópicos de baja potencia, evitar irritantes.", notas: "Educar sobre el rascado y mantener la piel siempre humectada." },
+            { paciente: "Ximena Vega", diagnostico: "Asma Leve Intermitente", fecha: "2025-06-16", medico: "Dr. Carlos Sánchez Ruiz", especialidadMedico: "Medicina General", descripcion: "Episodios ocasionales de sibilancias y dificultad respiratoria, especialmente con ejercicio. No hay síntomas nocturnos frecuentes.", tratamiento: "Salbutamol (albuterol) inhalador de rescate según necesidad. Considerar corticosteroide inhalado si los síntomas aumentan.", notas: "Recomendación de llevar siempre el inhalador y evitar desencadenantes conocidos." },
+            { paciente: "Walter Ríos", diagnostico: "Reflujo Gastroesofágico", fecha: "2025-06-15", medico: "Dr. Luis Gómez Castro", especialidadMedico: "Gastroenterología", descripcion: "Acidez estomacal frecuente y regurgitación ácida, peor por la noche. Mejora con antiácidos OTC.", tratamiento: "Omeprazol 20mg una vez al día, cambios en la dieta (evitar grasas, picantes, cítricos), elevar la cabecera de la cama.", notas: "Evaluación en 8 semanas para decidir si se continúa con IBP o se reduce la dosis." },
+            { paciente: "Valentina Luna", diagnostico: "Sinusitis Aguda Viral", fecha: "2025-06-14", medico: "Dr. Miguel Ángel Mora", especialidadMedico: "Otorrinolaringología", descripcion: "Presión facial, congestión nasal, secreción verdosa y dolor de cabeza. Duración de 5 días. Sin fiebre.", tratamiento: "Descongestionantes nasales (no más de 3 días), lavados nasales con solución salina, analgésicos.", notas: "Si los síntomas persisten o empeoran después de 7-10 días, considerar origen bacteriano y antibióticos." }
+        ];
+
+        // --- Paginación Variables ---
+        const ITEMS_PER_PAGE = 7; // CAMBIADO a 7 diagnósticos por página
+        let currentPage = 1;
+
+        // --- Elementos del DOM ---
+        const diagnosticModal = document.getElementById('diagnosticModal');
+        const openModalBtn = document.getElementById('openModalBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const btnCancelarModal = document.getElementById('btnCancelarModal');
+        const diagnosticForm = document.getElementById('diagnosticForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const btnSaveUpdateDiagnostic = document.getElementById('btnSaveUpdateDiagnostic');
+
+        // Formulario campos
+        const medicoInput = document.getElementById('medicoDiagnostico');
+        const doctoresList = document.getElementById('doctoresList');
+        const medicoError = document.getElementById('medicoError');
+        const medicoEspecialidadDisplay = document.getElementById('medicoEspecialidadDisplay');
+        const medicoEspecialidadValue = document.getElementById('medicoEspecialidadValue');
+
+        const pacienteInput = document.getElementById('nombrePaciente');
+        const pacienteError = document.getElementById('pacienteError');
+        const fechaDiagnosticoInput = document.getElementById('fechaDiagnostico');
+        const nombreDiagnosticoInput = document.getElementById('nombreDiagnostico');
+        const descripcionDiagnosticoInput = document.getElementById('descripcionDiagnostico');
+        const tratamientoDiagnosticoInput = document.getElementById('tratamientoDiagnostico');
+        const notasDiagnosticoInput = document.getElementById('notasDiagnostico');
+        const diagnosticsTableBody = document.getElementById('diagnosticsTableBody');
+
+        // Filtros y Ordenamiento
+        const searchInput = document.getElementById('searchInput');
+        const filterDateInput = document.getElementById('filterDateInput');
+        const sortDateAscBtn = document.getElementById('sortDateAscBtn');
+        const sortDateDescBtn = document.getElementById('sortDateDescBtn');
+        const sortPatientAscBtn = document.getElementById('sortPatientAscBtn');
+        const sortPatientDescBtn = document.getElementById('sortPatientDescBtn');
+
+        // Paginación DOM
+        const paginationControls = document.getElementById('paginationControls');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const pageNumbersContainer = document.getElementById('pageNumbers');
+
+        // Nuevo Modal de Tratamiento
+        const treatmentModal = document.getElementById('treatmentModal');
+        const closeTreatmentModalBtn = document.getElementById('closeTreatmentModalBtn');
+        const treatmentContentDisplay = document.getElementById('treatmentContentDisplay');
+        const treatmentPatientName = document.getElementById('treatmentPatientName');
+
+
+        let currentEditIndex = -1; // -1 para nuevo, cualquier otro número para edición
+
+        // --- Funciones del Acordeón ---
+        const accordionHeaders = document.querySelectorAll('.accordion-header');
+
+        function toggleAccordion(header) {
+            const content = document.getElementById(header.dataset.target);
+            const icon = header.querySelector('.accordion-icon');
+
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                header.classList.remove('active');
+            } else {
+                accordionHeaders.forEach(h => {
+                    const c = document.getElementById(h.dataset.target);
+                    const i = h.querySelector('.accordion-icon');
+                    if (h !== header && c.classList.contains('open')) {
+                        c.classList.remove('open');
+                        h.classList.remove('active');
+                        i.style.transform = 'rotate(0deg)';
+                    }
+                });
+                content.classList.add('open');
+                header.classList.add('active');
+            }
+        }
+
+        accordionHeaders.forEach(header => {
+            header.addEventListener('click', () => toggleAccordion(header));
+        });
+
+        // --- Funciones del Modal principal (Crear/Editar) ---
+        function openModal(isEditMode = false, diagnosticData = null, index = -1) {
+            diagnosticModal.style.display = 'flex';
+            resetFormAndDate(); // Siempre resetear al abrir y establecer fecha actual
+
+            // Asegurarse de que el primer bloque esté abierto por defecto al abrir el modal
+            const firstHeader = document.querySelector('.accordion-item .accordion-header');
+            const firstContent = document.getElementById(firstHeader.dataset.target);
+            accordionHeaders.forEach(h => { // Cierra todos primero
+                document.getElementById(h.dataset.target).classList.remove('open');
+                h.classList.remove('active');
+                h.querySelector('.accordion-icon').style.transform = 'rotate(0deg)';
+            });
+            firstContent.classList.add('open'); // Abre solo el primero
+            firstHeader.classList.add('active');
+            firstHeader.querySelector('.accordion-icon').style.transform = 'rotate(90deg)';
+            
+            if (isEditMode && diagnosticData) {
+                modalTitle.textContent = 'Editar Diagnóstico';
+                btnSaveUpdateDiagnostic.innerHTML = '<i class="fa-solid fa-save mr-2"></i> Actualizar Diagnóstico';
+                currentEditIndex = index;
+                // Cargar datos en el formulario para edición
+                pacienteInput.value = diagnosticData.paciente;
+                nombreDiagnosticoInput.value = diagnosticData.diagnostico;
+                fechaDiagnosticoInput.value = diagnosticData.fecha; // Fecha en formato YYYY-MM-DD para el input type="date"
+                medicoInput.value = diagnosticData.medico;
+                descripcionDiagnosticoInput.value = diagnosticData.descripcion;
+                tratamientoDiagnosticoInput.value = diagnosticData.tratamiento;
+                notasDiagnosticoInput.value = diagnosticData.notas;
+
+                // Mostrar especialidad del médico si aplica en modo edición
+                const selectedDoctor = doctoresRegistrados.find(d => d.nombre === diagnosticData.medico);
+                if (selectedDoctor) {
+                    medicoEspecialidadValue.textContent = selectedDoctor.especialidad;
+                    medicoEspecialidadDisplay.classList.remove('hidden');
+                } else {
+                    medicoEspecialidadDisplay.classList.add('hidden');
+                }
+
+            } else {
+                modalTitle.textContent = 'Crear Nuevo Diagnóstico';
+                btnSaveUpdateDiagnostic.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Guardar Diagnóstico';
+                currentEditIndex = -1; // Asegurarse de que es un nuevo diagnóstico
+            }
+        }
+
+        function closeModal() {
+            diagnosticModal.style.display = 'none';
+            resetFormAndDate();
+            currentEditIndex = -1; // Resetear índice de edición
+            medicoEspecialidadDisplay.classList.add('hidden'); // Ocultar especialidad al cerrar
+        }
+
+        openModalBtn.addEventListener('click', () => openModal(false));
+        closeModalBtn.addEventListener('click', closeModal);
+        btnCancelarModal.addEventListener('click', closeModal);
+
+        window.addEventListener('click', (event) => {
+            if (event.target == diagnosticModal) {
+                closeModal();
+            }
+        });
+
+        function resetFormAndDate() {
+            diagnosticForm.reset();
+            pacienteError.classList.add('hidden');
+            medicoError.classList.add('hidden');
+            medicoEspecialidadDisplay.classList.add('hidden'); // Ocultar especialidad al resetear
+
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            const formattedDate = `${year}-${month}-${day}`; // Formato YYYY-MM-DD para input type="date"
+            fechaDiagnosticoInput.value = formattedDate;
+        }
+
+        // --- Función para limpiar dobles espacios y trim ---
+        function cleanAndTrimSpaces(inputElement) {
+            inputElement.value = inputElement.value.replace(/\s{2,}/g, ' ').trim();
+        }
+
+        // --- Asignar la función cleanAndTrimSpaces solo al evento 'blur' ---
+        pacienteInput.addEventListener('blur', () => cleanAndTrimSpaces(pacienteInput));
+        nombreDiagnosticoInput.addEventListener('blur', () => cleanAndTrimSpaces(nombreDiagnosticoInput));
+        descripcionDiagnosticoInput.addEventListener('blur', () => cleanAndTrimSpaces(descripcionDiagnosticoInput));
+        tratamientoDiagnosticoInput.addEventListener('blur', () => cleanAndTrimSpaces(tratamientoDiagnosticoInput));
+        notasDiagnosticoInput.addEventListener('blur', () => cleanAndTrimSpaces(notasDiagnosticoInput));
+
+        // --- Cargar opciones en el datalist de doctores y mostrar especialidad ---
+        doctoresRegistrados.forEach(doctor => {
+            const option = document.createElement('option');
+            option.value = doctor.nombre;
+            option.setAttribute('data-especialidad', doctor.especialidad); // Guardar especialidad
+            doctoresList.appendChild(option);
+        });
+
+        medicoInput.addEventListener('input', () => {
+            validarMedico();
+            const enteredMedico = medicoInput.value;
+            const selectedDoctor = doctoresRegistrados.find(d => d.nombre === enteredMedico);
+            if (selectedDoctor) {
+                medicoEspecialidadValue.textContent = selectedDoctor.especialidad;
+                medicoEspecialidadDisplay.classList.remove('hidden');
+            } else {
+                medicoEspecialidadValue.textContent = '';
+                medicoEspecialidadDisplay.classList.add('hidden');
+            }
+        });
+        medicoInput.addEventListener('blur', validarMedico);
+
+        // --- Validaciones ---
+        function validarMedico() {
+            const nombreMedico = medicoInput.value.trim();
+            if (nombreMedico === "") {
+                medicoError.classList.add('hidden');
+                return true;
+            }
+            if (doctoresRegistrados.some(d => d.nombre === nombreMedico)) {
+                medicoError.classList.add('hidden');
+                return true;
+            } else {
+                medicoError.classList.remove('hidden');
+                return false;
+            }
+        }
+
+        pacienteInput.addEventListener('input', validarPaciente);
+        pacienteInput.addEventListener('blur', validarPaciente);
+        function validarPaciente() {
+            const nombre = pacienteInput.value.trim();
+            const regex = /^[A-Za-zñÑáéíóúÁÉÍÓÚ\s-']+$/;
+            if (nombre === "") {
+                pacienteError.classList.add('hidden');
+                return true;
+            }
+            if (regex.test(nombre)) {
+                pacienteError.classList.add('hidden');
+                return true;
+            } else {
+                pacienteError.classList.remove('hidden');
+                return false;
+            }
+        }
+
+        // --- Función para formatear la fecha a "dd/mm/aa" ---
+        function formatFechaToDDMMYY(dateString) {
+            const [year, month, day] = dateString.split('-');
+            // Obtener los dos últimos dígitos del año
+            const shortYear = year.slice(-2); 
+            return `${day}/${month}/${shortYear}`;
+        }
+
+        // --- Funciones CRUD (Create, Read, Update, Delete) y Paginación ---
+
+        function renderDiagnosticsTable() {
+            diagnosticsTableBody.innerHTML = '';
+            let filteredAndSortedDiagnostics = [...diagnostics]; 
+
+            // Aplicar Filtro de Búsqueda por Texto
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            if (searchTerm) {
+                filteredAndSortedDiagnostics = filteredAndSortedDiagnostics.filter(diag => 
+                    diag.paciente.toLowerCase().includes(searchTerm) ||
+                    diag.diagnostico.toLowerCase().includes(searchTerm) ||
+                    diag.medico.toLowerCase().includes(searchTerm) ||
+                    diag.especialidadMedico.toLowerCase().includes(searchTerm) ||
+                    diag.descripcion.toLowerCase().includes(searchTerm) ||
+                    diag.tratamiento.toLowerCase().includes(searchTerm) ||
+                    diag.notas.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Aplicar Filtro por Fecha (MODIFICADO para coincidencia EXACTA)
+            const filterDate = filterDateInput.value;
+            if (filterDate) {
+                filteredAndSortedDiagnostics = filteredAndSortedDiagnostics.filter(diag => diag.fecha === filterDate);
+            }
+
+            // Paginación: Calcular el rango de diagnósticos a mostrar
+            const totalPages = Math.ceil(filteredAndSortedDiagnostics.length / ITEMS_PER_PAGE);
+            
+            if (currentPage > totalPages && totalPages > 0) {
+                currentPage = totalPages;
+            } else if (totalPages === 0) {
+                currentPage = 1;
+            }
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const diagnosticsToDisplay = filteredAndSortedDiagnostics.slice(startIndex, endIndex);
+
+            if (diagnosticsToDisplay.length === 0) {
+                const noDataRow = document.createElement('tr');
+                noDataRow.className = 'hover:bg-gray-50';
+                noDataRow.innerHTML = `
+                    <td class="py-3 px-6 text-left whitespace-nowrap table-cell-text" colspan="6">
+                        <p class="text-center text-gray-500 italic">No hay diagnósticos que coincidan con los filtros o en esta página.</p>
+                    </td>
+                `;
+                diagnosticsTableBody.appendChild(noDataRow);
+            } else {
+                diagnosticsToDisplay.forEach((diag) => {
+                    // Para encontrar el índice original, es mejor buscar por un ID único si lo tuviéramos.
+                    // Como no hay ID, lo buscamos por una combinación de campos que se asume es única para este ejemplo.
+                    const originalIndex = diagnostics.findIndex(d => 
+                        d.paciente === diag.paciente && 
+                        d.diagnostico === diag.diagnostico && 
+                        d.fecha === diag.fecha &&
+                        d.medico === diag.medico 
+                    );
+
+                    // Formatear la fecha para la visualización en la tabla
+                    const formattedDate = formatFechaToDDMMYY(diag.fecha); 
+
+                    const row = document.createElement('tr');
+                    row.className = 'border-b border-gray-200 hover:bg-gray-50';
+                    row.innerHTML = `
+                        <td class="py-3 px-6 text-left whitespace-nowrap table-cell-text">${diag.paciente}</td>
+                        <td class="py-3 px-6 text-left table-cell-text">${diag.diagnostico}</td>
+                        <td class="py-3 px-6 text-left table-cell-text">${formattedDate}</td> 
+                        <td class="py-3 px-6 text-left table-cell-text">${diag.medico} (${diag.especialidadMedico || 'N/A'})</td>
+                        <td class="py-3 px-6 text-center">
+                            <button onclick="showTreatment('${encodeURIComponent(diag.tratamiento)}', '${encodeURIComponent(diag.paciente)}')" 
+                                    class="transform hover:scale-110 transition duration-200 ease-in-out btn-action-icon" 
+                                    title="Ver Tratamiento">
+                                <i class="fa-solid fa-eye-slash text-lg"></i>
+                            </button>
+                        </td>
+                        <td class="py-3 px-6 text-center">
+                            <div class="flex item-center justify-center">
+                                <button onclick="editDiagnostic(${originalIndex})" class="w-auto mx-2 transform hover:scale-110 btn-action-icon">
+                                    <i class="fa-solid fa-edit text-lg"></i>
+                                </button>
+                                <button onclick="deleteDiagnostic(${originalIndex})" class="w-auto mx-2 transform text-red-500 hover:text-red-700 hover:scale-110">
+                                    <i class="fa-solid fa-trash-alt text-lg"></i>
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                    diagnosticsTableBody.appendChild(row);
+                });
+            }
+            updatePaginationControls(totalPages);
+        }
+
+        // --- Funciones de Edición y Eliminación ---
+        window.editDiagnostic = function(index) {
+            const diagnosticToEdit = diagnostics[index];
+            if (diagnosticToEdit) {
+                openModal(true, diagnosticToEdit, index);
+            }
+        }
+
+        window.deleteDiagnostic = function(index) {
+            if (confirm(`¿Estás seguro de que quieres eliminar el diagnóstico de "${diagnostics[index].paciente}" (${diagnostics[index].diagnostico})?`)) {
+                diagnostics.splice(index, 1);
+                renderDiagnosticsTable();
+                alert('Diagnóstico eliminado con éxito.');
+            }
+        }
+
+        // --- Manejo del envío del formulario (Crear/Actualizar) ---
+        diagnosticForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            cleanAndTrimSpaces(pacienteInput);
+            cleanAndTrimSpaces(nombreDiagnosticoInput);
+            cleanAndTrimSpaces(descripcionDiagnosticoInput);
+            cleanAndTrimSpaces(tratamientoDiagnosticoInput);
+            cleanAndTrimSpaces(notasDiagnosticoInput);
+
+            const nombrePaciente = pacienteInput.value.trim();
+            const nombre = nombreDiagnosticoInput.value.trim();
+            const fecha = fechaDiagnosticoInput.value; // Ya está en YYYY-MM-DD por el input type="date"
+            const medico = medicoInput.value.trim();
+            const descripcion = descripcionDiagnosticoInput.value.trim();
+            const tratamiento = tratamientoDiagnosticoInput.value.trim();
+            const notas = notasDiagnosticoInput.value.trim();
+
+            const pacienteEsValido = validarPaciente();
+            const medicoEsValido = validarMedico();
+
+            if (!pacienteEsValido) {
+                alert('Error: El nombre del paciente solo puede contener letras, espacios, guiones y apóstrofes. Por favor, corrija los datos y revise la sección "Datos del Paciente".');
+                return;
+            }
+            if (!medicoEsValido) {
+                alert('Error: El médico ingresado no se encuentra registrado en el hospital. Por favor, seleccione uno de la lista o corrija el nombre y revise la sección "Información del Médico".');
+                return;
+            }
+
+            // Validar campos obligatorios
+            if (!(nombrePaciente && nombre && fecha && medico && descripcion && tratamiento)) {
+                 alert('Por favor, completa todos los campos obligatorios en todas las secciones: Paciente, Diagnóstico, Fecha, Médico, Descripción y Tratamiento Recomendado.');
+                 return;
+            }
+
+            const selectedDoctor = doctoresRegistrados.find(d => d.nombre === medico);
+            const especialidadMedico = selectedDoctor ? selectedDoctor.especialidad : 'Desconocida';
+
+            const newDiagnosticData = {
+                paciente: nombrePaciente,
+                diagnostico: nombre,
+                fecha: fecha,
+                medico: medico,
+                especialidadMedico: especialidadMedico,
+                descripcion: descripcion,
+                tratamiento: tratamiento,
+                notas: notas
+            };
+
+            if (currentEditIndex !== -1) {
+                diagnostics[currentEditIndex] = newDiagnosticData;
+                alert('Diagnóstico actualizado con éxito.');
+            } else {
+                diagnostics.push(newDiagnosticData);
+                alert('Diagnóstico guardado con éxito.');
+            }
+            
+            renderDiagnosticsTable();
+            closeModal();
+        });
+
+        // --- Eventos de Búsqueda y Filtro ---
+        searchInput.addEventListener('input', () => {
+            currentPage = 1; // Resetear a la primera página al buscar
+            renderDiagnosticsTable();
+        });
+        filterDateInput.addEventListener('change', () => {
+            currentPage = 1; // Resetear a la primera página al filtrar por fecha
+            renderDiagnosticsTable();
+        });
+
+        // --- Eventos de Ordenamiento ---
+        sortDateAscBtn.addEventListener('click', () => {
+            diagnostics.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            currentPage = 1; // Resetear a la primera página al ordenar
+            renderDiagnosticsTable();
+        });
+        sortDateDescBtn.addEventListener('click', () => {
+            diagnostics.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+            currentPage = 1; // Resetear a la primera página al ordenar
+            renderDiagnosticsTable();
+        });
+        sortPatientAscBtn.addEventListener('click', () => {
+            diagnostics.sort((a, b) => a.paciente.localeCompare(b.paciente, 'es', { sensitivity: 'base' })); // 'es' para español, 'base' para ignorar mayúsculas/minúsculas y acentos
+            currentPage = 1; // Resetear a la primera página al ordenar
+            renderDiagnosticsTable();
+        });
+        sortPatientDescBtn.addEventListener('click', () => {
+            diagnostics.sort((a, b) => b.paciente.localeCompare(a.paciente, 'es', { sensitivity: 'base' }));
+            currentPage = 1; // Resetear a la primera página al ordenar
+            renderDiagnosticsTable();
+        });
+
+        // --- Funciones de Paginación ---
+        function updatePaginationControls(totalPages) {
+            pageNumbersContainer.innerHTML = ''; // Limpiar números de página existentes
+
+            if (totalPages <= 1) {
+                paginationControls.classList.add('hidden');
+                return;
+            } else {
+                paginationControls.classList.remove('hidden');
+            }
+
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = currentPage === totalPages;
+
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                pageButton.className = 'pagination-button';
+                if (i === currentPage) {
+                    pageButton.classList.add('active-page');
+                }
+                pageButton.addEventListener('click', () => {
+                    currentPage = i;
+                    renderDiagnosticsTable();
+                });
+                pageNumbersContainer.appendChild(pageButton);
+            }
+        }
+
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderDiagnosticsTable();
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(diagnostics.length / ITEMS_PER_PAGE);
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderDiagnosticsTable();
+            }
+        });
+
+        // --- Nuevo: Funciones para el Modal de Tratamiento ---
+        window.showTreatment = function(encodedTreatment, encodedPatientName) {
+            const treatmentText = decodeURIComponent(encodedTreatment);
+            const patientName = decodeURIComponent(encodedPatientName);
+            treatmentContentDisplay.textContent = treatmentText;
+            treatmentPatientName.textContent = `Tratamiento para: ${patientName}`;
+            treatmentModal.style.display = 'flex';
+        }
+
+        closeTreatmentModalBtn.addEventListener('click', () => {
+            treatmentModal.style.display = 'none';
+        });
+
+        // Cerrar el modal de tratamiento si se hace clic fuera de él
+        window.addEventListener('click', (event) => {
+            if (event.target == treatmentModal) {
+                treatmentModal.style.display = 'none';
+            }
+        });
+
+        // --- Inicialización ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderDiagnosticsTable();
+        });
+    </script>
+
+</body>
+</html>

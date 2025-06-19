@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Empleados</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background: linear-gradient(to bottom right, #f3f4f6, #e5e7eb, #d0f7d9); /* Adjusted body background to complement #9aeeb2 */
+            color: #1f2937;
+            min-height: 100vh; /* Ensure body takes full viewport height */
+        }
+        input[type="text"],
+        input[type="date"],
+        select {
+            color: #1f2937;
+        }
+
+        /* Custom styling for date input calendar icon */
+        input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(70%) sepia(20%) saturate(1500%) hue-rotate(80deg) brightness(90%) contrast(100%); /* Green tint for calendar icon */
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out;
+        }
+        input[type="date"]::-webkit-calendar-picker-indicator:hover {
+            transform: scale(1.1);
+        }
+
+        .modal {
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            transform: translateY(-20px);
+            transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+        }
+        .modal.open .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        /* Gradient for doctor list background */
+        .doctor-list-bg {
+            background: linear-gradient(to bottom right, #e8f9ed, #d2f2db); /* Gradient near #9aeeb2 */
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="max-w-7xl mx-auto bg-white rounded-lg shadow-xl p-8 border border-gray-200 flex flex-col lg:flex-row min-h-[calc(100vh-4rem)]"> <div class="mb-8 p-6 lg:w-1/3 bg-[#9aeeb2] rounded-lg shadow-md lg:mr-8 lg:mb-0 flex flex-col justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                    <i class="fas fa-filter mr-3"></i>Filtrar Empleados
+                </h2>
+                <div class="grid grid-cols-1 gap-5"> <div>
+                        <label for="filterName" class="block text-base font-medium text-gray-700 mb-1">Nombre</label>
+                        <input type="text" id="filterName" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-[#72e08c] focus:border-[#72e08c] bg-gray-50" placeholder="Buscar por nombre">
+                    </div>
+                    <div>
+                        <label for="filterId" class="block text-base font-medium text-gray-700 mb-1">Número de Cédula</label>
+                        <input type="text" id="filterId" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-[#72e08c] focus:border-[#72e08c] bg-gray-50" placeholder="Buscar por cédula">
+                    </div>
+                    <div>
+                        <label for="filterDate" class="block text-base font-medium text-gray-700 mb-1">Fecha de Ingreso</label>
+                        <input type="date" id="filterDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-[#72e08c] focus:border-[#72e08c] bg-gray-50">
+                    </div>
+                    <div>
+                        <label for="filterSpecialty" class="block text-base font-medium text-gray-700 mb-1">Especialidad</label>
+                        <select id="filterSpecialty" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2.5 focus:ring-[#72e08c] focus:border-[#72e08c] bg-gray-50">
+                            <option value="">Todas</option>
+                            <option value="Cardiología">Cardiología</option>
+                            <option value="Pediatría">Pediatría</option>
+                            <option value="Dermatología">Dermatología</option>
+                            <option value="Oncología">Oncología</option>
+                            <option value="Neurología">Neurología</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 text-right"> <button id="clearFilters" class="bg-gray-200 text-gray-700 py-2.5 px-5 rounded-md hover:bg-gray-300 transition duration-300 ease-in-out transform hover:scale-105 text-base">
+                    <i class="fas fa-times-circle mr-2"></i>Limpiar Filtros
+                </button>
+            </div>
+        </div>
+
+        <div class="lg:w-2/3 flex flex-col">
+            <h1 class="text-4xl font-bold text-center text-gray-800 mb-8">Gestión de Empleados</h1>
+
+            <div id="doctorList" class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 p-6 rounded-lg doctor-list-bg flex-grow"> </div>
+
+            <div id="pagination" class="flex justify-center items-center space-x-2 mt-8">
+            </div>
+        </div>
+    </div>
+
+    <div id="doctorDetailsModal" class="modal fixed inset-0 flex items-center justify-center p-4 z-50 hidden">
+        <div class="modal-overlay absolute inset-0 bg-black opacity-50"></div>
+        <div class="modal-content bg-white rounded-lg shadow-2xl p-8 max-w-md w-full relative z-10 opacity-0 transform -translate-y-20 scale-95 transition-all duration-300 ease-out">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6 text-center" id="modalDoctorName"></h3>
+            <div class="space-y-3 text-gray-700 text-lg">
+                <p><strong class="text-[#72e08c]"><i class="fas fa-calendar-alt mr-2"></i>Fecha de Nacimiento:</strong> <span id="modalDob"></span></p>
+                <p><strong class="text-[#72e08c]"><i class="fas fa-phone mr-2"></i>Teléfono:</strong> <span id="modalPhone"></span></p>
+                <p><strong class="text-[#72e08c]"><i class="fas fa-envelope mr-2"></i>Correo:</strong> <span id="modalEmail"></span></p>
+                <p><strong class="text-[#72e08c]"><i class="fas fa-briefcase-medical mr-2"></i>Especialidad:</strong> <span id="modalSpecialty"></span></p>
+            </div>
+            <div class="mt-8 text-center">
+                <button id="closeModal" class="bg-[#9aeeb2] hover:bg-[#86d9a0] text-gray-800 font-bold py-2.5 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Sample Doctor Data
+        const allDoctors = [
+            {
+                id: 1,
+                name: "Dr. Juan Pérez García",
+                cedula: "1234567890",
+                entryDate: "2020-01-15",
+                dob: "1980-05-20",
+                phone: "+593 99 123 4567",
+                email: "juan.perez@hospital.com",
+                specialty: "Cardiología"
+            },
+            {
+                id: 2,
+                name: "Dra. Ana López Martínez",
+                cedula: "0987654321",
+                entryDate: "2019-03-10",
+                dob: "1975-11-12",
+                phone: "+593 98 765 4321",
+                email: "ana.lopez@hospital.com",
+                specialty: "Pediatría"
+            },
+            {
+                id: 3,
+                name: "Dr. Carlos Sánchez Ruiz",
+                cedula: "1122334455",
+                entryDate: "2021-07-01",
+                dob: "1988-01-25",
+                phone: "+593 97 112 2334",
+                email: "carlos.sanchez@hospital.com",
+                specialty: "Dermatología"
+            },
+            {
+                id: 4,
+                name: "Dra. María Fernández Díaz",
+                cedula: "2233445566",
+                entryDate: "2018-09-20",
+                dob: "1970-08-01",
+                phone: "+593 96 223 3445",
+                email: "maria.fernandez@hospital.com",
+                specialty: "Oncología"
+            },
+            {
+                id: 5,
+                name: "Dr. Luis Gómez Castro",
+                cedula: "3344556677",
+                entryDate: "2022-02-28",
+                dob: "1992-03-05",
+                phone: "+593 95 334 4556",
+                email: "luis.gomez@hospital.com",
+                specialty: "Neurología"
+            },
+            {
+                id: 6,
+                name: "Dra. Laura Torres Vargas",
+                cedula: "4455667788",
+                entryDate: "2020-06-11",
+                dob: "1983-09-19",
+                phone: "+593 94 445 5667",
+                email: "laura.torres@hospital.com",
+                specialty: "Cardiología"
+            },
+            {
+                id: 7,
+                name: "Dr. Pedro Morales Castro",
+                cedula: "5566778899",
+                entryDate: "2017-11-05",
+                dob: "1968-02-29",
+                phone: "+593 93 556 6778",
+                email: "pedro.morales@hospital.com",
+                specialty: "Pediatría"
+            },
+            {
+                id: 8,
+                name: "Dra. Sofía Ramos Ruiz",
+                cedula: "6677889900",
+                entryDate: "2023-01-22",
+                dob: "1990-07-07",
+                phone: "+593 92 667 7889",
+                email: "sofia.ramos@hospital.com",
+                specialty: "Dermatología"
+            },
+            {
+                id: 9,
+                name: "Dr. Roberto Vega Ortiz",
+                cedula: "7788990011",
+                entryDate: "2016-04-18",
+                dob: "1972-04-03",
+                phone: "+593 91 778 8990",
+                email: "roberto.vega@hospital.com",
+                specialty: "Oncología"
+            },
+            {
+                id: 10,
+                name: "Dra. Valeria Salazar Paz",
+                cedula: "8899001122",
+                entryDate: "2024-05-01",
+                dob: "1995-10-28",
+                phone: "+593 90 889 9001",
+                email: "valeria.salazar@hospital.com",
+                specialty: "Neurología"
+            },
+            {
+                id: 11,
+                name: "Dr. Gabriel Soto León",
+                cedula: "9900112233",
+                entryDate: "2015-08-08",
+                dob: "1978-06-15",
+                phone: "+593 89 900 1122",
+                email: "gabriel.soto@hospital.com",
+                specialty: "Cardiología"
+            },
+            {
+                id: 12,
+                name: "Dra. Carolina Ríos Pérez",
+                cedula: "1011223344",
+                entryDate: "2023-03-03",
+                dob: "1987-12-01",
+                phone: "+593 88 101 1223",
+                email: "carolina.rios@hospital.com",
+                specialty: "Pediatría"
+            },
+        ];
+
+        let filteredDoctors = [...allDoctors];
+        let currentPage = 1;
+        const doctorsPerPage = 5;
+
+        const doctorListDiv = document.getElementById('doctorList');
+        const paginationDiv = document.getElementById('pagination');
+        const filterNameInput = document.getElementById('filterName');
+        const filterIdInput = document.getElementById('filterId');
+        const filterDateInput = document.getElementById('filterDate');
+        const filterSpecialtySelect = document.getElementById('filterSpecialty');
+        const clearFiltersBtn = document.getElementById('clearFilters');
+
+        const doctorDetailsModal = document.getElementById('doctorDetailsModal');
+        const modalDoctorName = document.getElementById('modalDoctorName');
+        const modalDob = document.getElementById('modalDob');
+        const modalPhone = document.getElementById('modalPhone');
+        const modalEmail = document.getElementById('modalEmail');
+        const modalSpecialty = document.getElementById('modalSpecialty');
+        const closeModalBtn = document.getElementById('closeModal');
+
+        // --- Functions ---
+
+        function renderDoctors() {
+            doctorListDiv.innerHTML = ''; // Clear current list
+
+            const startIndex = (currentPage - 1) * doctorsPerPage;
+            const endIndex = startIndex + doctorsPerPage;
+            const doctorsToDisplay = filteredDoctors.slice(startIndex, endIndex);
+
+            if (doctorsToDisplay.length === 0) {
+                doctorListDiv.innerHTML = '<p class="text-center text-gray-500 col-span-full">No se encontraron empleados con los filtros aplicados.</p>';
+                paginationDiv.innerHTML = '';
+                return;
+            }
+
+            doctorsToDisplay.forEach(doctor => {
+                const doctorCard = document.createElement('div');
+                doctorCard.className = 'bg-white rounded-lg shadow-md p-6 border border-gray-100 transform hover:scale-105 transition duration-300 ease-in-out flex flex-col justify-between'; // Added flex-col and justify-between
+                doctorCard.innerHTML = `
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">${doctor.name}</h3>
+                        <p class="text-gray-600 mb-1"><strong class="text-[#72e08c]">Cédula:</strong> ${doctor.cedula}</p>
+                        <p class="text-gray-600 mb-3"><strong class="text-[#72e08c]">Ingreso:</strong> ${doctor.entryDate}</p>
+                        <p class="text-gray-600 mb-4"><strong class="text-[#72e08c]">Especialidad:</strong> ${doctor.specialty}</p>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-3 mt-auto">
+                        <button class="view-details-btn flex-1 bg-[#d2f2db] hover:bg-[#c2e8d0] text-gray-800 py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center" data-id="${doctor.id}">
+                            <i class="fas fa-info-circle mr-2"></i>Ver Detalles
+                        </button>
+                        <button class="delete-doctor-btn flex-1 bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md transition duration-300 ease-in-out flex items-center justify-center" data-id="${doctor.id}">
+                            <i class="fas fa-trash-alt mr-2"></i>Eliminar
+                        </button>
+                    </div>
+                `;
+                doctorListDiv.appendChild(doctorCard);
+            });
+
+            addCardEventListeners(); // Attach event listeners to newly created buttons
+            renderPagination();
+        }
+
+        function renderPagination() {
+            paginationDiv.innerHTML = '';
+            const totalPages = Math.ceil(filteredDoctors.length / doctorsPerPage);
+
+            if (totalPages <= 1) return; // No pagination needed for 1 or less pages
+
+            // Previous button
+            const prevButton = document.createElement('button');
+            prevButton.className = `px-4 py-2 rounded-md ${currentPage === 1 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#9aeeb2] text-gray-800 hover:bg-[#86d9a0] transition duration-300'}`;
+            prevButton.innerHTML = '<i class="fas fa-chevron-left"></i>';
+            prevButton.disabled = currentPage === 1;
+            prevButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    renderDoctors();
+                }
+            });
+            paginationDiv.appendChild(prevButton);
+
+            // Page numbers
+            for (let i = 1; i <= totalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.className = `px-4 py-2 rounded-md ${currentPage === i ? 'bg-gray-800 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} transition duration-300`;
+                pageButton.textContent = i;
+                pageButton.addEventListener('click', () => {
+                    currentPage = i;
+                    renderDoctors();
+                });
+                paginationDiv.appendChild(pageButton);
+            }
+
+            // Next button
+            const nextButton = document.createElement('button');
+            nextButton.className = `px-4 py-2 rounded-md ${currentPage === totalPages ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-[#9aeeb2] text-gray-800 hover:bg-[#86d9a0] transition duration-300'}`;
+            nextButton.innerHTML = '<i class="fas fa-chevron-right"></i>';
+            nextButton.disabled = currentPage === totalPages;
+            nextButton.addEventListener('click', () => {
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    renderDoctors();
+                }
+            });
+            paginationDiv.appendChild(nextButton);
+        }
+
+        function applyFilters() {
+            const name = filterNameInput.value.toLowerCase();
+            const id = filterIdInput.value.toLowerCase();
+            const date = filterDateInput.value;
+            const specialty = filterSpecialtySelect.value;
+
+            filteredDoctors = allDoctors.filter(doctor => {
+                const matchesName = doctor.name.toLowerCase().includes(name);
+                const matchesId = doctor.cedula.toLowerCase().includes(id);
+                const matchesDate = date ? doctor.entryDate === date : true;
+                const matchesSpecialty = specialty ? doctor.specialty === specialty : true;
+                return matchesName && matchesId && matchesDate && matchesSpecialty;
+            });
+            currentPage = 1; // Reset to first page after filtering
+            renderDoctors();
+        }
+
+        function openModal(doctor) {
+            modalDoctorName.textContent = doctor.name;
+            modalDob.textContent = doctor.dob;
+            modalPhone.textContent = doctor.phone;
+            modalEmail.textContent = doctor.email;
+            modalSpecialty.textContent = doctor.specialty;
+            doctorDetailsModal.classList.remove('hidden');
+            // Animate modal opening
+            setTimeout(() => {
+                doctorDetailsModal.classList.add('open');
+            }, 10); // Small delay to allow 'hidden' to be removed first
+        }
+
+        function closeModal() {
+            doctorDetailsModal.classList.remove('open');
+            // Hide after animation
+            setTimeout(() => {
+                doctorDetailsModal.classList.add('hidden');
+            }, 300);
+        }
+
+        function deleteDoctor(idToDelete) {
+            if (confirm('¿Está seguro de que desea eliminar a este doctor? Esta acción no se puede deshacer.')) {
+                const initialLength = allDoctors.length;
+                const doctorIndex = allDoctors.findIndex(doctor => doctor.id === idToDelete);
+                if (doctorIndex > -1) {
+                    allDoctors.splice(doctorIndex, 1);
+                    alert('Doctor eliminado exitosamente.');
+                    applyFilters(); // Re-render to reflect changes and re-apply filters
+                } else {
+                    alert('Error: No se pudo encontrar o eliminar al doctor.');
+                }
+            }
+        }
+
+        function addCardEventListeners() {
+            document.querySelectorAll('.view-details-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const doctorId = parseInt(event.currentTarget.dataset.id);
+                    const doctor = allDoctors.find(d => d.id === doctorId);
+                    if (doctor) {
+                        openModal(doctor);
+                    }
+                });
+            });
+
+            document.querySelectorAll('.delete-doctor-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    const doctorId = parseInt(event.currentTarget.dataset.id);
+                    deleteDoctor(doctorId);
+                });
+            });
+        }
+
+        // --- Event Listeners ---
+        filterNameInput.addEventListener('input', applyFilters);
+        filterIdInput.addEventListener('input', applyFilters);
+        filterDateInput.addEventListener('change', applyFilters); // 'change' for date input
+        filterSpecialtySelect.addEventListener('change', applyFilters);
+
+        clearFiltersBtn.addEventListener('click', () => {
+            filterNameInput.value = '';
+            filterIdInput.value = '';
+            filterDateInput.value = '';
+            filterSpecialtySelect.value = '';
+            applyFilters(); // Re-apply filters to show all doctors
+        });
+
+        closeModalBtn.addEventListener('click', closeModal);
+        doctorDetailsModal.addEventListener('click', (event) => {
+            if (event.target === doctorDetailsModal.querySelector('.modal-overlay')) {
+                closeModal();
+            }
+        });
+
+        // Initial render
+        document.addEventListener('DOMContentLoaded', renderDoctors);
+    </script>
+</body>
+</html>

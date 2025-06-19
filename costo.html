@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Costo Mensual por Área/Doctor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        body {
+            font-family: 'Lato', sans-serif;
+            background: linear-gradient(to bottom right, #f0fdf4, #dcfce7, #bbf7d0); /* Light green gradient */
+            color: #1f2937;
+        }
+        input[type="text"],
+        input[type="number"],
+        input[type="date"],
+        textarea,
+        select {
+            color: #1f2937;
+        }
+
+        .expense-item {
+            background-color: #f8fafc;
+            border-left: 4px solid #4ade80; /* Medium green border */
+        }
+        .summary-card {
+            background: linear-gradient(to right, #4ade80, #22c55e); /* Green gradient */
+            color: white;
+            transition: transform 0.3s ease-in-out;
+        }
+        .summary-card:hover {
+            transform: translateY(-5px);
+        }
+        .add-expense-form {
+            opacity: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: opacity 0.5s ease-out, max-height 0.5s ease-out;
+        }
+        .add-expense-form.open {
+            opacity: 1;
+            max-height: 500px; /* Adjust as needed to fit content */
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="p-8">
+
+    <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-xl p-8 border border-gray-200">
+        <h1 class="text-3xl font-bold text-center text-green-700 mb-8">Gestos Mensuales del Hospital</h1>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            <div class="summary-card p-6 rounded-lg shadow-lg flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold opacity-80">Total General</p>
+                    <p class="text-3xl font-bold mt-1" id="totalGeneral">$0.00</p>
+                </div>
+                <i class="fas fa-dollar-sign text-5xl opacity-50"></i>
+            </div>
+            <div class="summary-card p-6 rounded-lg shadow-lg flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold opacity-80">Gastos Doctores</p>
+                    <p class="text-3xl font-bold mt-1" id="totalDoctores">$0.00</p>
+                </div>
+                <i class="fas fa-user-md text-5xl opacity-50"></i>
+            </div>
+            <div class="summary-card p-6 rounded-lg shadow-lg flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold opacity-80">Gastos Administrativos</p>
+                    <p class="text-3xl font-bold mt-1" id="totalAdministrativos">$0.00</p>
+                </div>
+                <i class="fas fa-building text-5xl opacity-50"></i>
+            </div>
+        </div>
+
+        <div class="mb-8 p-6 bg-green-50 rounded-lg shadow-md">
+            <button id="toggleAddExpenseForm" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center mb-4">
+                <i class="fas fa-plus-circle mr-2"></i>Registrar Nuevo Gasto
+            </button>
+
+            <form id="addExpenseForm" class="add-expense-form space-y-4">
+                <h3 class="text-xl font-semibold text-green-600 mb-4 text-center">Detalles del Gasto</h3>
+                <div>
+                    <label for="expenseDescription" class="block text-sm font-semibold text-gray-700">Descripción del Gasto</label>
+                    <input type="text" id="expenseDescription" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-green-500 focus:border-green-500 bg-gray-50" placeholder="Ej. Materiales Quirúrgicos" required>
+                </div>
+                <div>
+                    <label for="expenseAmount" class="block text-sm font-semibold text-gray-700">Monto ($)</label>
+                    <input type="number" id="expenseAmount" step="0.01" min="0" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-green-500 focus:border-green-500 bg-gray-50" placeholder="Ej. 150.75" required>
+                </div>
+                <div>
+                    <label for="expenseDate" class="block text-sm font-semibold text-gray-700">Fecha del Gasto</label>
+                    <input type="date" id="expenseDate" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-green-500 focus:border-green-500 bg-gray-50" required>
+                </div>
+                <div>
+                    <label for="expenseCategory" class="block text-sm font-semibold text-gray-700">Categoría</label>
+                    <select id="expenseCategory" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-green-500 focus:border-green-500 bg-gray-50" required>
+                        <option value="">Seleccione una categoría</option>
+                        <option value="doctor">Gasto de Doctor</option>
+                        <option value="administrative">Gasto Administrativo</option>
+                    </select>
+                </div>
+                <div id="doctorSelectDiv" class="hidden">
+                    <label for="responsibleDoctor" class="block text-sm font-semibold text-gray-700">Doctor Responsable</label>
+                    <select id="responsibleDoctor" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-green-500 focus:border-green-500 bg-gray-50"></select>
+                </div>
+                <button type="submit" class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                    <i class="fas fa-save mr-2"></i>Guardar Gasto
+                </button>
+            </form>
+        </div>
+
+        <div id="expensesList" class="space-y-6">
+            <div id="doctorExpensesSection" class="bg-gray-100 p-6 rounded-lg shadow-sm">
+                <h2 class="text-xl font-semibold text-green-600 mb-4 flex items-center">
+                    <i class="fas fa-user-md mr-2"></i>Gastos por Doctor
+                    <span id="totalDoctorExpensesSection" class="ml-auto text-green-700 font-bold">$0.00</span>
+                </h2>
+                <div id="doctorExpensesContainer" class="space-y-3">
+                    </div>
+            </div>
+
+            <div id="adminExpensesSection" class="bg-gray-100 p-6 rounded-lg shadow-sm">
+                <h2 class="text-xl font-semibold text-green-600 mb-4 flex items-center">
+                    <i class="fas fa-building mr-2"></i>Gastos Administrativos
+                    <span id="totalAdminExpensesSection" class="ml-auto text-green-700 font-bold">$0.00</span>
+                </h2>
+                <div id="adminExpensesContainer" class="space-y-3">
+                    </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const doctorsListForExpenses = [
+            { id: 1, name: "Dr. Juan Pérez García" },
+            { id: 2, name: "Dra. Ana López Martínez" },
+            { id: 3, name: "Dr. Carlos Sánchez Ruiz" },
+            { id: 4, name: "Dra. María Fernández Díaz" },
+            { id: 5, name: "Dr. Luis Gómez Castro" },
+        ];
+
+        let monthlyExpenses = [];
+
+        const totalGeneralSpan = document.getElementById('totalGeneral');
+        const totalDoctoresSpan = document.getElementById('totalDoctores');
+        const totalAdministrativosSpan = document.getElementById('totalAdministrativos');
+
+        const toggleAddExpenseFormBtn = document.getElementById('toggleAddExpenseForm');
+        const addExpenseForm = document.getElementById('addExpenseForm');
+        const expenseDescriptionInput = document.getElementById('expenseDescription');
+        const expenseAmountInput = document.getElementById('expenseAmount');
+        const expenseDateInput = document.getElementById('expenseDate');
+        const expenseCategorySelect = document.getElementById('expenseCategory');
+        const doctorSelectDiv = document.getElementById('doctorSelectDiv');
+        const responsibleDoctorSelect = document.getElementById('responsibleDoctor');
+
+        const doctorExpensesContainer = document.getElementById('doctorExpensesContainer');
+        const adminExpensesContainer = document.getElementById('adminExpensesContainer');
+        const totalDoctorExpensesSectionSpan = document.getElementById('totalDoctorExpensesSection');
+        const totalAdminExpensesSectionSpan = document.getElementById('totalAdminExpensesSection');
+
+        // Populate doctor select dropdown
+        function populateDoctorSelect() {
+            responsibleDoctorSelect.innerHTML = '<option value="">Seleccione un doctor</option>';
+            doctorsListForExpenses.forEach(doctor => {
+                const option = document.createElement('option');
+                option.value = doctor.id;
+                option.textContent = doctor.name;
+                responsibleDoctorSelect.appendChild(option);
+            });
+        }
+
+        // Show/hide doctor select based on category
+        expenseCategorySelect.addEventListener('change', () => {
+            if (expenseCategorySelect.value === 'doctor') {
+                doctorSelectDiv.classList.remove('hidden');
+                responsibleDoctorSelect.setAttribute('required', 'true');
+            } else {
+                doctorSelectDiv.classList.add('hidden');
+                responsibleDoctorSelect.removeAttribute('required');
+                responsibleDoctorSelect.value = ''; // Clear selection
+            }
+        });
+
+        // Toggle add expense form visibility
+        toggleAddExpenseFormBtn.addEventListener('click', () => {
+            addExpenseForm.classList.toggle('open');
+            if (addExpenseForm.classList.contains('open')) {
+                toggleAddExpenseFormBtn.innerHTML = '<i class="fas fa-minus-circle mr-2"></i>Cerrar Formulario';
+            } else {
+                toggleAddExpenseFormBtn.innerHTML = '<i class="fas fa-plus-circle mr-2"></i>Registrar Nuevo Gasto';
+            }
+        });
+
+        // Render expenses and update totals
+        function renderExpenses() {
+            doctorExpensesContainer.innerHTML = '';
+            adminExpensesContainer.innerHTML = '';
+            let totalGeneral = 0;
+            let totalDoctores = 0;
+            let totalAdministrativos = 0;
+
+            const expensesByDoctor = {};
+
+            monthlyExpenses.forEach(expense => {
+                totalGeneral += expense.amount; // Add to general total once per expense
+
+                if (expense.category === 'doctor') {
+                    const doctor = doctorsListForExpenses.find(d => d.id === expense.responsibleDoctorId);
+                    totalDoctores += expense.amount;
+
+                    if (!expensesByDoctor[expense.responsibleDoctorId]) {
+                        expensesByDoctor[expense.responsibleDoctorId] = {
+                            name: doctor ? doctor.name : 'Desconocido',
+                            expenses: [],
+                            total: 0
+                        };
+                    }
+                    expensesByDoctor[expense.responsibleDoctorId].expenses.push(expense);
+                    expensesByDoctor[expense.responsibleDoctorId].total += expense.amount;
+
+                } else { // 'administrative'
+                    const expenseItem = document.createElement('div');
+                    expenseItem.className = 'expense-item p-4 rounded-md shadow-sm flex justify-between items-center animate-fade-in';
+                    
+                    let responsibleParty = ' (Administración)';
+                    totalAdministrativos += expense.amount;
+                    expenseItem.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-lg">${expense.description}</p>
+                            <p class="text-sm text-gray-500">${expense.date}${responsibleParty}</p>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-xl font-bold text-red-600 mr-4">-$${expense.amount.toFixed(2)}</span>
+                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition-colors" data-id="${expense.id}">
+                                <i class="fas fa-times-circle text-lg"></i>
+                            </button>
+                        </div>
+                    `;
+                    adminExpensesContainer.appendChild(expenseItem);
+                }
+            });
+
+            // Render doctor expenses grouped
+            doctorExpensesContainer.innerHTML = ''; // Clear before rendering
+            for (const doctorId in expensesByDoctor) {
+                const doctorSection = document.createElement('div');
+                doctorSection.className = 'bg-white p-4 rounded-md shadow-sm border border-green-200 mt-4';
+                doctorSection.innerHTML = `
+                    <h4 class="font-bold text-green-700 mb-2">${expensesByDoctor[doctorId].name} <span class="float-right text-lg font-bold">$${expensesByDoctor[doctorId].total.toFixed(2)}</span></h4>
+                    <ul class="space-y-2 mt-2"></ul>
+                `;
+                const ul = doctorSection.querySelector('ul');
+                expensesByDoctor[doctorId].expenses.forEach(exp => {
+                    const li = document.createElement('li');
+                    li.className = 'flex justify-between items-center text-gray-700 border-t border-gray-100 pt-2';
+                    li.innerHTML = `
+                        <span>${exp.description} <span class="text-sm text-gray-500">(${exp.date})</span></span>
+                        <div class="flex items-center">
+                            <span class="text-red-600 font-semibold mr-4">-$${exp.amount.toFixed(2)}</span>
+                            <button class="delete-expense-btn text-gray-400 hover:text-red-500 transition-colors" data-id="${exp.id}">
+                                <i class="fas fa-times-circle"></i>
+                            </button>
+                        </div>
+                    `;
+                    ul.appendChild(li);
+                });
+                doctorExpensesContainer.appendChild(doctorSection);
+            }
+
+
+            totalGeneralSpan.textContent = `$${totalGeneral.toFixed(2)}`;
+            totalDoctoresSpan.textContent = `$${totalDoctores.toFixed(2)}`;
+            totalAdministrativosSpan.textContent = `$${totalAdministrativos.toFixed(2)}`;
+            totalDoctorExpensesSectionSpan.textContent = `$${totalDoctores.toFixed(2)}`;
+            totalAdminExpensesSectionSpan.textContent = `$${totalAdministrativos.toFixed(2)}`;
+
+            addDeleteExpenseListeners(); // Attach listeners after rendering
+        }
+
+        // Add expense form submission
+        addExpenseForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const description = expenseDescriptionInput.value.trim();
+            const amount = parseFloat(expenseAmountInput.value);
+            const date = expenseDateInput.value;
+            const category = expenseCategorySelect.value;
+            const responsibleDoctorId = category === 'doctor' ? parseInt(responsibleDoctorSelect.value) : null;
+
+            if (description && !isNaN(amount) && amount > 0 && date && category) {
+                if (category === 'doctor' && !responsibleDoctorId) {
+                    alert('Por favor, seleccione un doctor responsable para este gasto.');
+                    return;
+                }
+
+                const newExpense = {
+                    id: Date.now(), // Unique ID
+                    description,
+                    amount,
+                    date,
+                    category,
+                    responsibleDoctorId
+                };
+
+                monthlyExpenses.push(newExpense);
+                renderExpenses();
+                addExpenseForm.reset(); // Clear form
+                doctorSelectDiv.classList.add('hidden'); // Hide doctor select
+                responsibleDoctorSelect.removeAttribute('required');
+                alert('Gasto registrado exitosamente!');
+            } else {
+                alert('Por favor, complete todos los campos obligatorios y asegúrese de que el monto sea válido.');
+            }
+        });
+
+        // Delete expense functionality
+        function addDeleteExpenseListeners() {
+            document.querySelectorAll('.delete-expense-btn').forEach(button => {
+                // To prevent adding multiple listeners, we clone and replace the node
+                const newButton = button.cloneNode(true);
+                button.parentNode.replaceChild(newButton, button);
+
+                newButton.addEventListener('click', (event) => {
+                    const expenseId = parseInt(event.currentTarget.dataset.id);
+                    if (confirm('¿Está seguro de que desea eliminar este gasto?')) {
+                        monthlyExpenses = monthlyExpenses.filter(expense => expense.id !== expenseId);
+                        renderExpenses();
+                        alert('Gasto eliminado.');
+                    }
+                });
+            });
+        }
+
+        // Initial setup
+        document.addEventListener('DOMContentLoaded', () => {
+            populateDoctorSelect();
+            renderExpenses(); // Render any initial data
+            // Set current date as default for expenseDate input
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0');
+            const day = String(today.getDate()).padStart(2, '0');
+            expenseDateInput.value = `${year}-${month}-${day}`;
+        });
+    </script>
+</body>
+</html>

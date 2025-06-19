@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario de Medicamentos</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        /* CSS mínimo para el body y la fuente, ya que Tailwind no tiene clases directas para esto sin configuración */
+        body {
+            font-family: 'Lato', sans-serif;
+            background: linear-gradient(to bottom right, #ffffff, #d1fae5); /* Tailwind's emerald-100 or similar */
+            min-height: 100vh;
+            padding: 2rem; /* Asegura un padding mínimo en el body */
+        }
+
+        /* Clases para limitar líneas en descripciones (necesitan CSS personalizado o plugin de Tailwind) */
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* line-clamp: 3; */ /* Descomentar si el navegador de destino lo soporta o para compatibilidad futura */
+        }
+
+        .line-clamp-5 {
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            /* line-clamp: 5; */ /* Descomentar si el navegador de destino lo soporta o para compatibilidad futura */
+        }
+
+        /* Acordeón: El JavaScript añade/quita 'open' y rota el icono */
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden; /* Esto es importante para la transición */
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        }
+        .accordion-content.open {
+            max-height: 9999px; /* Suficientemente grande para cualquier contenido */
+            padding: 1rem 1.125rem; /* Ajuste para p-4 de Tailwind */
+        }
+        .accordion-icon {
+            transition: transform 0.3s ease;
+        }
+        .accordion-header.active .accordion-icon {
+            transform: rotate(90deg);
+        }
+
+        /* Fade-in para los modales */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .modal-animate-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Ajustes para el modal principal:
+           - Flexbox para que el contenido dentro del modal se adapte a la altura.
+           - Un margen vertical mínimo para asegurar que no toque los bordes.
+           - VUELTO A AÑADIR overflow-y-auto aquí para que el MODAL COMPLETO tenga scroll si es muy largo.
+        */
+        #medicineModal > div,
+        #detailModal > div {
+            display: flex;
+            flex-direction: column;
+            margin: 2vh auto; /* Un pequeño margen superior e inferior, centrado horizontalmente */
+            box-sizing: border-box; /* Asegura que padding y border se incluyan en el tamaño */
+            max-height: 90vh; /* El modal sigue limitado en altura */
+            overflow-y: auto; /* AÑADIDO DE NUEVO: El modal principal tiene scroll si es necesario */
+        }
+
+        /* Estilos para el dropdown de categorías */
+        .dropdown-menu {
+            max-height: 200px; /* Limita la altura del menú para que tenga scroll si hay muchas categorías */
+            overflow-y: auto;
+        }
+
+        /* Estilos para el Toast/Aviso */
+        #toastMessage {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #34D399; /* Tailwind's emerald-500 */
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-out, visibility 0.3s ease-out;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        #toastMessage.show {
+            opacity: 1;
+            visibility: visible;
+        }
+    </style>
+</head>
+<body class="p-8 text-gray-900 text-base">
+
+    <div id="toastMessage" class="toast">
+        <i class="fa-solid fa-check-circle text-lg"></i>
+        <span id="toastText"></span>
+    </div>
+
+    <div class="max-w-7xl mx-auto w-full p-8 bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col min-h-[calc(100vh-4rem)]">
+        <h1 class="text-3xl md:text-4xl font-bold text-center text-emerald-500 mb-8">Inventario de Medicamentos</h1>
+
+        <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
+            <div class="flex flex-wrap gap-4">
+                <button id="openModalBtn" class="py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center bg-green-600 text-white font-bold hover:bg-green-700">
+                    <i class="fa-solid fa-plus-circle mr-2"></i>
+                    Nuevo Medicamento
+                </button>
+
+                <div class="relative inline-block text-left">
+                    <button type="button" id="openCategoryFilterBtn" class="py-2 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center bg-gray-300 text-gray-800 font-bold hover:bg-gray-400">
+                        <i class="fa-solid fa-filter mr-2"></i>
+                        Filtrar por Categoría
+                        <i class="fa-solid fa-chevron-down ml-2 text-xs"></i>
+                    </button>
+                    <div id="categoryDropdown" class="origin-top-left absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden dropdown-menu z-10">
+                        <div class="py-1" role="menu" aria-orientation="vertical" aria-labelledby="options-menu">
+                            <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900" role="menuitem" data-category-filter="all">Todas las Categorías</a>
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-4 flex-grow justify-end">
+                <div class="relative w-full md:w-auto flex-grow md:flex-grow-0">
+                    <input type="text" id="searchInput" placeholder="Buscar medicamento..." class="pl-10 pr-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-gray-50 w-full text-base">
+                    <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap gap-2 mt-4 md:mt-0 w-full md:w-auto justify-end">
+                <button id="sortNameAscBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg transition duration-200 ease-in-out text-sm">
+                    Nombre (A <i class="fa-solid fa-arrow-up text-xs"></i> Z)
+                </button>
+                <button id="sortNameDescBtn" class="flex-grow md:flex-grow-0 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 px-3 rounded-lg transition duration-200 ease-in-out text-sm">
+                    Nombre (Z <i class="fa-solid fa-arrow-down text-xs"></i> A)
+                </button>
+            </div>
+        </div>
+
+        <div id="medicineGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div class="col-span-full py-6 text-center text-gray-500 italic">
+                No hay medicamentos registrados aún. ¡Añade uno!
+            </div>
+        </div>
+
+        <div id="paginationControls" class="flex justify-center items-center mt-8 hidden">
+            <button id="prevPageBtn" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md mr-2 hover:bg-gray-300 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Anterior</button>
+            <div id="pageNumbers" class="flex space-x-2">
+                </div>
+            <button id="nextPageBtn" class="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-md ml-2 hover:bg-gray-300 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Siguiente</button>
+        </div>
+    </div>
+
+    <div id="medicineModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 max-w-md relative modal-animate-in max-h-[90vh] overflow-y-auto">
+            <span class="absolute top-3 right-5 text-gray-400 text-3xl font-bold cursor-pointer hover:text-gray-700" id="closeModalBtn">&times;</span>
+            <h2 id="modalTitle" class="text-2xl font-bold text-center text-emerald-500 mb-6">Añadir Nuevo Medicamento</h2>
+
+            <form id="medicineForm" class="mt-5 space-y-5">
+                <div class="border border-gray-200 rounded-lg">
+                    <button type="button" class="accordion-header flex justify-between items-center w-full p-4 bg-gray-100 text-gray-800 font-semibold text-lg rounded-t-lg transition duration-300 hover:bg-gray-200 active" data-target="basicInfoContent">
+                        1. Información Básica
+                        <i class="fa-solid fa-chevron-right accordion-icon transform rotate-90"></i>
+                    </button>
+                    <div id="basicInfoContent" class="accordion-content open">
+                        <p class="text-gray-700 mb-4">Detalles esenciales del medicamento:</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="nombreMedicamento" class="block font-semibold text-gray-700 mb-1">Nombre del Medicamento</label>
+                                <input type="text" id="nombreMedicamento" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Ej. Ibuprofeno 400mg" required>
+                            </div>
+                            <div>
+                                <label for="descripcionCorta" class="block font-semibold text-gray-700 mb-1">Descripción Corta</label>
+                                <textarea id="descripcionCorta" rows="3" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Breve descripción para la tarjeta." required></textarea>
+                            </div>
+                            <div>
+                                <label for="imagenUrl" class="block font-semibold text-gray-700 mb-1">URL de la Imagen</label>
+                                <input type="url" id="imagenUrl" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="https://ejemplo.com/imagen.jpg" required>
+                                <p class="text-gray-500 text-sm mt-1">Usa una URL de imagen válida (PNG, JPG, GIF). Ejemplo: `https://via.placeholder.com/150/d1fae5/000000?text=Medicamento`</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border border-gray-200 rounded-lg">
+                    <button type="button" class="accordion-header flex justify-between items-center w-full p-4 bg-gray-100 text-gray-800 font-semibold text-lg rounded-t-lg transition duration-300 hover:bg-gray-200" data-target="additionalDetailsContent">
+                        2. Detalles Adicionales
+                        <i class="fa-solid fa-chevron-right accordion-icon"></i>
+                    </button>
+                    <div id="additionalDetailsContent" class="accordion-content">
+                        <p class="text-gray-700 mb-4">Información técnica del medicamento:</p>
+                        <div class="space-y-4">
+                             <div>
+                                <label for="descripcionCompletaForm" class="block font-semibold text-gray-700 mb-1">Descripción Completa</label>
+                                <textarea id="descripcionCompletaForm" rows="6" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Descripción detallada del medicamento para la vista completa."></textarea>
+                            </div>
+                            <div>
+                                <label for="claseTerapeutica" class="block font-semibold text-gray-700 mb-1">Clase Terapeutica</label>
+                                <input type="text" id="claseTerapeutica" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Ej. Analgésico, Antibiótico">
+                            </div>
+                            <div>
+                                <label for="presentacion" class="block font-semibold text-gray-700 mb-1">Presentacion</label>
+                                <input type="text" id="presentacion" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Ej. Tabletas, Jarabe, Crema">
+                            </div>
+                            <div>
+                                <label for="laboratorio" class="block font-semibold text-gray-700 mb-1">Laboratorio</label>
+                                <input type="text" id="laboratorio" class="block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500 bg-gray-50 text-base" placeholder="Ej. Bayer, Pfizer">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex justify-between items-center gap-4 mt-6">
+                    <button type="button" id="btnCancelarModal" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btnSaveUpdateMedicine" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center">
+                        <i class="fa-solid fa-floppy-disk mr-2"></i>
+                        Guardar Medicamento
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="detailModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-xl w-11/12 max-w-2xl relative modal-animate-in max-h-[90vh] overflow-y-auto">
+            <span class="absolute top-3 right-5 text-gray-400 text-3xl font-bold cursor-pointer hover:text-gray-700" id="closeDetailModalBtn">&times;</span>
+            <h3 class="text-2xl font-bold text-emerald-500 mb-4" id="detailModalTitle"></h3>
+            
+            <div class="flex flex-col md:flex-row items-center md:items-start gap-6">
+                <div class="flex-shrink-0 w-36 h-36 md:w-48 md:h-48 flex items-center justify-center bg-white border border-gray-200 rounded-md overflow-hidden">
+                    <img id="detailImage" src="" alt="Imagen del medicamento" class="max-w-full max-h-full object-contain">
+                </div>
+                <div class="text-left flex-grow">
+                    <p class="text-gray-800 text-lg mb-2"><span class="font-semibold">Descripción:</span> <span id="detailDescription" class="whitespace-pre-wrap line-clamp-5"></span></p>
+                    <p class="text-gray-700 mb-1"><span class="font-semibold">Clase Terapeutica:</span> <span id="detailTherapeuticClass"></span></p>
+                    <p class="text-gray-700 mb-1"><span class="font-semibold">Presentacion:</span> <span id="detailPresentation"></span></p>
+                    <p class="text-gray-700"><span class="font-semibold">Laboratorio:</span> <span id="detailLaboratory"></span></p>
+                    <p id="detailNotes" class="text-gray-600 text-base mt-3 italic hidden"></p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+                <button id="editFromDetailBtn" class="py-2 px-4 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition duration-200 flex items-center">
+                    <i class="fa-solid fa-edit mr-1"></i> Editar
+                </button>
+                <button id="deleteFromDetailBtn" class="py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-md transition duration-200 flex items-center">
+                    <i class="fa-solid fa-trash-alt mr-1"></i> Eliminar
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+   <script>
+        // --- Datos Simulados de Medicamentos ---
+        let medicines = [
+            {
+                nombre: "Paracetamol 500mg",
+                descripcionCorta: "Analgésico y antipirético para aliviar el dolor y la fiebre.",
+                imagenUrl: "https://farmaciauniversalpe.vtexassets.com/arquivos/ids/156423-800-auto?v=638417260707800000&width=800&height=auto&aspect=true",
+                descripcionCompleta: "El paracetamol es un medicamento de venta libre que se usa para aliviar el dolor leve a moderado (dolor de cabeza, dolores musculales, artritis, dolores menstruales) y para reducir la fiebre. Actúa inhibiendo la síntesis de prostaglandinas en el sistema nervioso central. Es seguro en dosis recomendadas, pero el uso excesivo puede causar daño hepático.",
+                claseTerapeutica: "Analgésico, Antipirético",
+                presentacion: "Tabletas",
+                laboratorio: "Genérico S.A."
+            },
+            {
+                nombre: "Ibuprofeno 400mg",
+                descripcionCorta: "Antiinflamatorio no esteroideo (AINE) para dolor, inflamación y fiebre.",
+                imagenUrl: "https://www.tempra.com.mx/static/9e33f26bc088ac923d9458252e464f7d/ec333/render_temprafen.png",
+                descripcionCompleta: "El ibuprofeno es un medicamento antiinflamatorio no esteroideo (AINE) utilizado para reducir la fiebre y como analgésico para aliviar dolores (dolor de cabeza, dolor dental, dolor de espalda, dolor articular) y la inflamación (artritis, esguinces). Su mecanismo de acción implica la inhibición de la enzima ciclooxigenasa (COX).",
+                claseTerapeutica: "AINE, Analgésico, Antipirético",
+                presentacion: "Tabletas",
+                laboratorio: "Farmacias Unidas"
+            },
+            {
+                nombre: "Amoxicilina 500mg",
+                descripcionCorta: "Antibiótico de amplio espectro, penicilina semisintética.",
+                imagenUrl: "https://farmapalacio.com/wp-content/uploads/2024/08/AMOXICILINA-500-MG-CAJA-X-50-CAPSULAS-GENFAR.jpg",
+                descripcionCompleta: "La amoxicilina es un antibiótico betalactámico de tipo penicilina, utilizado para tratar diversas infecciones bacterianas como infecciones del oído medio, amigdalitis, neumonía, infecciones de piel y de vías urinarias. Funciona deteniendo el crecimiento de las bacterias. Es importante completar el ciclo de tratamiento.",
+                claseTerapeutica: "Antibiótico (Penicilina)",
+                presentacion: "Cápsulas",
+                laboratorio: "Salud Global"
+            },
+            {
+                nombre: "Omeprazol 20mg",
+                descripcionCorta: "Inhibidor de la bomba de protones para la acidez estomacal y reflujo.",
+                imagenUrl: "https://www.life.com.ec/wp-content/uploads/2022/02/OMEPRAZOL_20_GASTRITIS_GENERICOS_GENAMERICA.png",
+                descripcionCompleta: "El omeprazol es un inhibidor de la bomba de protones (IBP) que reduce la cantidad de ácido producido en el estómago. Se utiliza para tratar afecciones como el reflujo gastroesofágico (ERGE), úlceras estomacales e intestinales, y el síndrome de Zollinger-Ellison. Generalmente se toma una vez al día antes de una comida.",
+                claseTerapeutica: "Inhibidor de la Bomba de Protones (IBP)",
+                presentacion: "Cápsulas entéricas",
+                laboratorio: "Gastro Pharma"
+            },
+            {
+                nombre: "Vitamina C 1000mg",
+                descripcionCorta: "Suplemento vitamínico para el sistema inmune y antioxidante.",
+                imagenUrl: "https://www.pharmacys.com.ec/wcsstore/DF_CatalogAsset/images/catalog/producto/fullimage/82948P-1.jpg",
+                descripcionCompleta: "La vitamina C (ácido ascórbico) es un nutriente esencial y un potente antioxidante que apoya el sistema inmunitario, la cicatrización de heridas, y la formación de colágeno. Se encuentra naturalmente en frutas cítricas y vegetales. Este suplemento ayuda a cubrir las necesidades diarias y a prevenir deficiencias.",
+                claseTerapeutica: "Vitamina, Antioxidante",
+                presentacion: "Tabletas efervescentes",
+                laboratorio: "NutriLife"
+            },
+            {
+                nombre: "Loratadina 10mg",
+                descripcionCorta: "Antihistamínico para aliviar síntomas de alergias.",
+                imagenUrl: "https://calox.com/wp-content/uploads/2022/12/LORATADINA.jpg",
+                descripcionCompleta: "La loratadina es un antihistamínico de segunda generación que alivia los síntomas de la alergia como estornudos, secreción nasal, ojos llorosos y picazón de garganta o nariz. A diferencia de los antihistamínicos de primera generación, causa menos somnolencia. Se toma una vez al día.",
+                claseTerapeutica: "Antihistamínico",
+                presentacion: "Tabletas",
+                laboratorio: "AlergyMed"
+            },
+            {
+                nombre: "Metformina 850mg",
+                descripcionCorta: "Medicamento oral para controlar la diabetes tipo 2.",
+                imagenUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS8KNTK_ZZp_en_xhpujwWpbDZ_eW5-oQOIXQ&s",
+                descripcionCompleta: "La metformina es un medicamento antidiabético oral que ayuda a controlar los niveles de azúcar en la sangre en personas con diabetes mellitus tipo 2. Actúa reduciendo la producción de glucosa en el hígado y mejorando la sensibilidad del cuerpo a la insulina. Suele ser el tratamiento de primera línea.",
+                claseTerapeutica: "Antidiabético Oral",
+                presentacion: "Tabletas",
+                laboratorio: "Diabetics Pharma"
+            },
+            {
+                nombre: "Salbutamol (inhalador)",
+                descripcionCorta: "Broncodilatador de rescate para el asma y EPOC.",
+                imagenUrl: "data:image/jpeg;base64,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",
+                descripcionCompleta: "El salbutamol es un broncodilatador de acción corta que relaja los músculos de las vías respiratorias, facilitando la respiración. Se utiliza para aliviar los ataques agudos de asma, broncoespasmo y síntomas de EPOC. Es un medicamento de 'rescate' de acción rápida.",
+                claseTerapeutica: "Broncodilatador",
+                presentacion: "Inhalador de dosis medida",
+                laboratorio: "RespiroPharm"
+            },
+            {
+                nombre: "Ranitidina 150mg",
+                descripcionCorta: "Antiácido para reducir la producción de ácido estomacal (antes de su retiro).",
+                imagenUrl: "https://prixz.com/salud/wp-content/uploads/2018/05/para-que-sirve-la-ranitidina.png",
+                descripcionCompleta: "La ranitidina era un bloqueador de los receptores H2 de histamina, utilizado para reducir la producción de ácido en el estómago y tratar úlceras, reflujo y acidez estomacal. (Nota: Este medicamento fue retirado del mercado en muchos países debido a la presencia de impurezas que aumentan el riesgo de cáncer).",
+                claseTerapeutica: "Antiácido (Bloqueador H2)",
+                presentacion: "Tabletas",
+                laboratorio: "Acidez Relief (Histórico)"
+            },
+            {
+                nombre: "Aspirina 100mg",
+                descripcionCorta: "Antiagregante plaquetario y analgésico en dosis bajas.",
+                imagenUrl: "https://farmacorp.com/cdn/shop/files/120246_1200x1200.jpg?v=1717011670",
+                descripcionCompleta: "La aspirina (ácido acetilsalicílico) en dosis bajas se usa comúnmente como antiagregante plaquetario para prevenir coágulos sanguíneos en pacientes con riesgo cardiovascular. En dosis más altas, tiene propiedades analgésicas, antipiréticas y antiinflamatorias.",
+                claseTerapeutica: "Antiagregante Plaquetario, AINE",
+                presentacion: "Tabletas",
+                laboratorio: "Bayer"
+            }
+        ];
+
+        // --- Paginación Variables ---
+        const ITEMS_PER_PAGE = 8; // Número de medicamentos por página en la grilla
+        let currentPage = 1;
+        let currentSortOrder = null; // 'asc' o 'desc' o null para sin ordenamiento
+        let currentCategoryFilter = 'all'; // 'all' o la categoría seleccionada
+
+        // --- Elementos del DOM ---
+        const medicineModal = document.getElementById('medicineModal');
+        const openModalBtn = document.getElementById('openModalBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const btnCancelarModal = document.getElementById('btnCancelarModal');
+        const medicineForm = document.getElementById('medicineForm');
+        const modalTitle = document.getElementById('modalTitle');
+        const btnSaveUpdateMedicine = document.getElementById('btnSaveUpdateMedicine');
+
+        // Formulario campos
+        const nombreMedicamentoInput = document.getElementById('nombreMedicamento');
+        const descripcionCortaInput = document.getElementById('descripcionCorta');
+        const imagenUrlInput = document.getElementById('imagenUrl');
+        const descripcionCompletaFormInput = document.getElementById('descripcionCompletaForm'); 
+        const claseTerapeuticaInput = document.getElementById('claseTerapeutica');
+        const presentacionInput = document.getElementById('presentacion');
+        const laboratorioInput = document.getElementById('laboratorio');
+
+        const medicineGrid = document.getElementById('medicineGrid');
+
+        // Filtros y Ordenamiento
+        const searchInput = document.getElementById('searchInput');
+        const sortNameAscBtn = document.getElementById('sortNameAscBtn');
+        const sortNameDescBtn = document.getElementById('sortNameDescBtn');
+
+        // Nuevos elementos para el filtro por categoría
+        const openCategoryFilterBtn = document.getElementById('openCategoryFilterBtn');
+        const categoryDropdown = document.getElementById('categoryDropdown');
+        const categoryDropdownMenu = categoryDropdown.querySelector('div[role="menu"]');
+
+
+        // Paginación DOM
+        const paginationControls = document.getElementById('paginationControls');
+        const prevPageBtn = document.getElementById('prevPageBtn');
+        const nextPageBtn = document.getElementById('nextPageBtn');
+        const pageNumbersContainer = document.getElementById('pageNumbers');
+
+        // Modal de Detalles de Medicamento
+        const detailModal = document.getElementById('detailModal');
+        const closeDetailModalBtn = document.getElementById('closeDetailModalBtn');
+        const detailModalTitle = document.getElementById('detailModalTitle');
+        const detailImage = document.getElementById('detailImage');
+        const detailDescription = document.getElementById('detailDescription');
+        const detailTherapeuticClass = document.getElementById('detailTherapeuticClass');
+        const detailPresentation = document.getElementById('detailPresentation');
+        const detailLaboratory = document.getElementById('laboratorio');
+        const detailNotes = document.getElementById('detailNotes'); 
+        const editFromDetailBtn = document.getElementById('editFromDetailBtn');
+        const deleteFromDetailBtn = document.getElementById('deleteFromDetailBtn');
+
+        let currentEditIndex = -1; // Usado para referenciar el índice en el array 'medicines' durante la edición
+
+        // --- Elementos del Toast/Aviso ---
+        const toastMessage = document.getElementById('toastMessage');
+        const toastText = document.getElementById('toastText');
+        let toastTimeout; // Para almacenar el ID del timeout y poder cancelarlo
+
+        // --- Función para mostrar el Toast/Aviso ---
+        function showToast(message, type = 'success', duration = 3000) {
+            toastText.textContent = message;
+            toastMessage.classList.remove('bg-red-500', 'bg-yellow-500'); // Limpiar clases previas
+            
+            if (type === 'success') {
+                toastMessage.classList.add('bg-green-500'); // Tailwind's green-500
+                toastMessage.querySelector('i').className = 'fa-solid fa-check-circle text-lg';
+            } else if (type === 'error') {
+                toastMessage.classList.add('bg-red-500');
+                toastMessage.querySelector('i').className = 'fa-solid fa-times-circle text-lg';
+            } else if (type === 'info') {
+                toastMessage.classList.add('bg-blue-500');
+                toastMessage.querySelector('i').className = 'fa-solid fa-info-circle text-lg';
+            }
+
+            // Asegurarse de que el toast tenga el color del CSS personalizado para el ejemplo
+            toastMessage.style.backgroundColor = type === 'success' ? '#34D399' : (type === 'error' ? '#EF4444' : '#3B82F6');
+
+
+            toastMessage.classList.add('show');
+
+            // Limpiar cualquier timeout existente
+            if (toastTimeout) {
+                clearTimeout(toastTimeout);
+            }
+
+            // Ocultar el toast después de 'duration' milisegundos
+            toastTimeout = setTimeout(() => {
+                toastMessage.classList.remove('show');
+            }, duration);
+        }
+
+        // --- Funciones del Acordeón ---
+        const accordionHeaders = document.querySelectorAll('.accordion-header');
+
+        function toggleAccordion(header) {
+            const content = document.getElementById(header.dataset.target);
+            const icon = header.querySelector('.accordion-icon');
+
+            // Cierra todos los acordeones excepto el que se está clickeando
+            accordionHeaders.forEach(h => {
+                if (h !== header) {
+                    const c = document.getElementById(h.dataset.target);
+                    const i = h.querySelector('.accordion-icon');
+                    c.classList.remove('open');
+                    h.classList.remove('active');
+                    i.style.transform = 'rotate(0deg)';
+                }
+            });
+
+            // Abre o cierra el acordeón clicado
+            if (content.classList.contains('open')) {
+                content.classList.remove('open');
+                header.classList.remove('active');
+                icon.style.transform = 'rotate(0deg)';
+            } else {
+                content.classList.add('open');
+                header.classList.add('active');
+                icon.style.transform = 'rotate(90deg)';
+            }
+        }
+
+        accordionHeaders.forEach(header => {
+            header.addEventListener('click', () => toggleAccordion(header));
+        });
+
+        // --- Funciones del Modal principal (Crear/Editar) ---
+        function openModal(isEditMode = false, medicineData = null, index = -1) {
+            medicineModal.classList.remove('hidden');
+            medicineModal.classList.add('flex'); 
+            resetForm(); 
+
+            // Asegurarse de que el primer bloque esté abierto por defecto y los demás cerrados
+            const firstHeader = document.querySelector('.accordion-header[data-target="basicInfoContent"]');
+            
+            // Cierra todos los acordeones primero
+            accordionHeaders.forEach(h => {
+                const c = document.getElementById(h.dataset.target);
+                const i = h.querySelector('.accordion-icon');
+                c.classList.remove('open');
+                h.classList.remove('active');
+                i.style.transform = 'rotate(0deg)';
+            });
+
+            // Abre solo el primer acordeón
+            const firstContent = document.getElementById(firstHeader.dataset.target);
+            firstContent.classList.add('open');
+            firstHeader.classList.add('active');
+            firstHeader.querySelector('.accordion-icon').style.transform = 'rotate(90deg)';
+
+
+            if (isEditMode && medicineData) {
+                modalTitle.textContent = 'Editar Medicamento';
+                btnSaveUpdateMedicine.innerHTML = '<i class="fa-solid fa-save mr-2"></i> Actualizar Medicamento';
+                currentEditIndex = index; // Guardamos el índice ORIGINAL aquí
+                
+                nombreMedicamentoInput.value = medicineData.nombre;
+                descripcionCortaInput.value = medicineData.descripcionCorta;
+                imagenUrlInput.value = medicineData.imagenUrl;
+                descripcionCompletaFormInput.value = medicineData.descripcionCompleta || ''; 
+                claseTerapeuticaInput.value = medicineData.claseTerapeutica || '';
+                presentacionInput.value = medicineData.presentacion || '';
+                laboratorioInput.value = medicineData.laboratorio || '';
+
+            } else {
+                modalTitle.textContent = 'Añadir Nuevo Medicamento';
+                btnSaveUpdateMedicine.innerHTML = '<i class="fa-solid fa-floppy-disk mr-2"></i> Guardar Medicamento';
+                currentEditIndex = -1; 
+            }
+        }
+
+        function closeModal() {
+            medicineModal.classList.add('hidden');
+            medicineModal.classList.remove('flex');
+            resetForm();
+            currentEditIndex = -1; 
+        }
+
+        openModalBtn.addEventListener('click', () => openModal(false));
+        closeModalBtn.addEventListener('click', closeModal);
+        btnCancelarModal.addEventListener('click', closeModal);
+
+        window.addEventListener('click', (event) => {
+            if (event.target == medicineModal) {
+                closeModal();
+            }
+            // Cerrar el dropdown de categoría si se hace clic fuera
+            if (!openCategoryFilterBtn.contains(event.target) && !categoryDropdown.contains(event.target)) {
+                categoryDropdown.classList.add('hidden');
+            }
+        });
+
+        function resetForm() {
+            medicineForm.reset();
+        }
+
+        // --- Función para limpiar dobles espacios y trim ---
+        function cleanAndTrimSpaces(inputElement) {
+            if (inputElement && inputElement.value) {
+                inputElement.value = inputElement.value.replace(/\s{2,}/g, ' ').trim();
+            }
+        }
+
+        // Aplicar a los inputs relevantes
+        nombreMedicamentoInput.addEventListener('blur', () => cleanAndTrimSpaces(nombreMedicamentoInput));
+        descripcionCortaInput.addEventListener('blur', () => cleanAndTrimSpaces(descripcionCortaInput));
+        imagenUrlInput.addEventListener('blur', () => cleanAndTrimSpaces(imagenUrlInput));
+        descripcionCompletaFormInput.addEventListener('blur', () => cleanAndTrimSpaces(descripcionCompletaFormInput));
+        claseTerapeuticaInput.addEventListener('blur', () => cleanAndTrimSpaces(claseTerapeuticaInput));
+        presentacionInput.addEventListener('blur', () => cleanAndTrimSpaces(presentacionInput));
+        laboratorioInput.addEventListener('blur', () => cleanAndTrimSpaces(laboratorioInput));
+
+        // --- Renderización de la Grilla de Medicamentos ---
+        function renderMedicineGrid() {
+            medicineGrid.innerHTML = '';
+            let filteredAndSortedMedicines = [...medicines]; // Copia del array original para filtrar/ordenar
+
+            // 1. Aplicar Filtro de Búsqueda por Texto
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            if (searchTerm) {
+                filteredAndSortedMedicines = filteredAndSortedMedicines.filter(med => 
+                    med.nombre.toLowerCase().includes(searchTerm) ||
+                    med.descripcionCorta.toLowerCase().includes(searchTerm) ||
+                    (med.descripcionCompleta && med.descripcionCompleta.toLowerCase().includes(searchTerm)) ||
+                    (med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(searchTerm)) ||
+                    (med.presentacion && med.presentacion.toLowerCase().includes(searchTerm)) ||
+                    (med.laboratorio && med.laboratorio.toLowerCase().includes(searchTerm))
+                );
+            }
+
+            // 2. Aplicar Filtro por Categoría
+            if (currentCategoryFilter !== 'all') {
+                filteredAndSortedMedicines = filteredAndSortedMedicines.filter(med =>
+                    med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(currentCategoryFilter.toLowerCase())
+                );
+            }
+
+            // 3. Aplicar Ordenamiento
+            if (currentSortOrder === 'asc') {
+                filteredAndSortedMedicines.sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+            } else if (currentSortOrder === 'desc') {
+                filteredAndSortedMedicines.sort((a, b) => b.nombre.localeCompare(a.nombre, 'es', { sensitivity: 'base' }));
+            }
+
+
+            // Paginación: Calcular el rango de medicamentos a mostrar
+            const totalPages = Math.ceil(filteredAndSortedMedicines.length / ITEMS_PER_PAGE);
+            
+            if (currentPage > totalPages && totalPages > 0) {
+                currentPage = totalPages;
+            } else if (totalPages === 0) {
+                currentPage = 1;
+            }
+
+            const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+            const endIndex = startIndex + ITEMS_PER_PAGE;
+            const medicinesToDisplay = filteredAndSortedMedicines.slice(startIndex, endIndex);
+
+            if (medicinesToDisplay.length === 0) {
+                const noDataMessage = document.createElement('div');
+                noDataMessage.className = 'col-span-full py-6 text-center text-gray-500 italic';
+                
+                // Mensaje más específico si hay filtros o búsqueda activa
+                if (searchTerm || currentCategoryFilter !== 'all') {
+                    noDataMessage.textContent = 'No hay medicamentos que coincidan con la búsqueda o categoría actual.';
+                } else {
+                    noDataMessage.textContent = 'No hay medicamentos registrados aún. ¡Añade uno!';
+                }
+                medicineGrid.appendChild(noDataMessage);
+            } else {
+                medicinesToDisplay.forEach((med) => { 
+                    // Importante: encontrar el índice ORIGINAL en el array 'medicines'
+                    // Esto es lo que asegura que splice modifique el array global correctamente.
+                    const originalIndex = medicines.findIndex(m => 
+                        m.nombre === med.nombre && 
+                        m.descripcionCorta === med.descripcionCorta && 
+                        m.imagenUrl === med.imagenUrl 
+                    );
+
+                    // Si por alguna razón el medicamento no se encuentra, saltamos 
+                    if (originalIndex === -1) {
+                        console.warn('Advertencia: Medicamento no encontrado en el array original para la tarjeta:', med);
+                        return; 
+                    }
+
+                    const card = document.createElement('div');
+                    card.className = 'bg-gray-50 rounded-lg border border-gray-200 overflow-hidden flex flex-col items-center text-center p-5 relative transition transform hover:-translate-y-1 hover:shadow-md';
+                    card.innerHTML = `
+                        <div class="w-36 h-36 flex items-center justify-center mb-4 bg-white border border-gray-200 rounded-md overflow-hidden">
+                            <img src="${med.imagenUrl}" alt="${med.nombre}" class="max-w-full max-h-full object-contain">
+                        </div>
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2 leading-tight">${med.nombre}</h3>
+                        <p class="text-sm text-gray-600 line-clamp-3 mb-4 flex-grow">${med.descripcionCorta}</p>
+                        <div class="flex justify-center gap-2 mt-auto w-full">
+                            <button onclick="showMedicineDetails(${originalIndex})" class="flex-1 py-2 px-3 bg-emerald-500 hover:bg-emerald-600 text-gray-900 text-sm font-semibold rounded-md transition duration-200 flex items-center justify-center" title="Ver Detalles">
+                                <i class="fa-solid fa-info-circle mr-1"></i> Detalles
+                            </button>
+                            <button onclick="editMedicine(${originalIndex})" class="py-2 px-3 bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold rounded-md transition duration-200" title="Editar">
+                                <i class="fa-solid fa-edit"></i>
+                            </button>
+                            <button onclick="deleteMedicine(${originalIndex})" class="py-2 px-3 bg-red-500 hover:bg-red-600 text-white text-sm font-semibold rounded-md transition duration-200" title="Eliminar">
+                                <i class="fa-solid fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    `;
+                    medicineGrid.appendChild(card);
+                });
+            }
+            // Importante: La paginación debe basarse en el array filtrado y ordenado
+            updatePaginationControls(Math.ceil(filteredAndSortedMedicines.length / ITEMS_PER_PAGE));
+        }
+
+        // --- Funciones de Edición y Eliminación ---
+        // Estas funciones reciben el 'originalIndex' del array 'medicines'
+        window.editMedicine = function(index) {
+            // Aseguramos que el índice es válido
+            if (index < 0 || index >= medicines.length) {
+                console.error("Índice de medicamento inválido para edición:", index);
+                showToast("Error: Medicamento no encontrado para editar.", "error");
+                return;
+            }
+            const medicineToEdit = medicines[index];
+            if (medicineToEdit) {
+                openModal(true, medicineToEdit, index);
+                closeDetailModal(); 
+            }
+        }
+
+        window.deleteMedicine = function(index) {
+            // Aseguramos que el índice es válido
+            if (index < 0 || index >= medicines.length) {
+                console.error("Índice de medicamento inválido para eliminación:", index);
+                showToast("Error: Medicamento no encontrado para eliminar.", "error");
+                return;
+            }
+
+            if (confirm(`¿Estás seguro de que quieres eliminar "${medicines[index].nombre}" del inventario?`)) {
+                medicines.splice(index, 1); 
+                renderMedicineGrid(); 
+                showToast('Medicamento eliminado con éxito.', 'success'); // Aviso de éxito
+                closeDetailModal(); 
+            }
+        }
+
+        // --- Manejo del envío del formulario (Crear/Actualizar) ---
+        medicineForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            cleanAndTrimSpaces(nombreMedicamentoInput);
+            cleanAndTrimSpaces(descripcionCortaInput);
+            cleanAndTrimSpaces(imagenUrlInput);
+            cleanAndTrimSpaces(descripcionCompletaFormInput);
+            cleanAndTrimSpaces(claseTerapeuticaInput);
+            cleanAndTrimSpaces(presentacionInput);
+            cleanAndTrimSpaces(laboratorioInput);
+            
+            const nombre = nombreMedicamentoInput.value.trim();
+            const descripcionCorta = descripcionCortaInput.value.trim();
+            const imagenUrl = imagenUrlInput.value.trim();
+            const descripcionCompleta = descripcionCompletaFormInput.value.trim(); 
+            const claseTerapeutica = claseTerapeuticaInput.value.trim();
+            const presentacion = presentacionInput.value.trim();
+            const laboratorio = laboratorioInput.value.trim();
+
+            if (!(nombre && descripcionCorta && imagenUrl)) {
+                 showToast('Por favor, completa los campos obligatorios: Nombre, Descripción Corta y URL de la Imagen.', 'error');
+                 return;
+            }
+
+            const newMedicineData = {
+                nombre: nombre,
+                descripcionCorta: descripcionCorta,
+                imagenUrl: imagenUrl,
+                descripcionCompleta: descripcionCompleta,
+                claseTerapeutica: claseTerapeutica,
+                presentacion: presentacion,
+                laboratorio: laboratorio
+            };
+
+            if (currentEditIndex !== -1) {
+                medicines[currentEditIndex] = newMedicineData;
+                showToast('Medicamento actualizado con éxito.', 'success'); // Aviso de éxito
+            } else {
+                medicines.push(newMedicineData);
+                showToast('Medicamento añadido con éxito.', 'success'); // Aviso de éxito
+            }
+            
+            renderMedicineGrid();
+            closeModal();
+        });
+
+        // --- Eventos de Búsqueda y Ordenamiento ---
+        searchInput.addEventListener('input', () => {
+            currentCategoryFilter = 'all'; // Resetear filtro de categoría al buscar
+            categoryDropdown.classList.add('hidden'); // Ocultar dropdown
+            currentPage = 1; 
+            renderMedicineGrid();
+        });
+
+        sortNameAscBtn.addEventListener('click', () => {
+            currentSortOrder = 'asc';
+            currentPage = 1; 
+            renderMedicineGrid();
+        });
+        sortNameDescBtn.addEventListener('click', () => {
+            currentSortOrder = 'desc';
+            currentPage = 1; 
+            renderMedicineGrid();
+        });
+
+        // --- Lógica del filtro por categoría (Dropdown) ---
+        function populateCategoryDropdown() {
+            // Obtener categorías únicas de los medicamentos
+            const categories = new Set();
+            medicines.forEach(med => {
+                if (med.claseTerapeutica) {
+                    // Dividir por comas, trim, y añadir cada sub-categoría
+                    med.claseTerapeutica.split(',').forEach(cat => {
+                        const trimmedCat = cat.trim();
+                        if (trimmedCat) {
+                            categories.add(trimmedCat);
+                        }
+                    });
+                }
+            });
+
+            // Limpiar dropdown antes de añadir nuevas opciones (excepto "Todas las Categorías")
+            while (categoryDropdownMenu.children.length > 1) { // Mantenemos "Todas las Categorías"
+                categoryDropdownMenu.removeChild(categoryDropdownMenu.lastChild);
+            }
+
+            // Añadir categorías al dropdown
+            Array.from(categories).sort().forEach(category => {
+                const categoryItem = document.createElement('a');
+                categoryItem.href = '#';
+                categoryItem.className = 'block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900';
+                categoryItem.setAttribute('role', 'menuitem');
+                categoryItem.setAttribute('data-category-filter', category);
+                categoryItem.textContent = category;
+                categoryDropdownMenu.appendChild(categoryItem);
+            });
+        }
+
+        openCategoryFilterBtn.addEventListener('click', (event) => {
+            event.stopPropagation(); // Evita que el clic se propague al window y cierre el dropdown
+            populateCategoryDropdown(); // Rellenar el dropdown cada vez que se abre para asegurar que esté actualizado
+            categoryDropdown.classList.toggle('hidden');
+        });
+
+        // Manejar la selección de categoría
+        categoryDropdownMenu.addEventListener('click', (event) => {
+            const target = event.target;
+            if (target.tagName === 'A' && target.dataset.categoryFilter) {
+                event.preventDefault(); // Evitar el comportamiento predeterminado del enlace
+                currentCategoryFilter = target.dataset.categoryFilter;
+                searchInput.value = ''; // Limpiar la búsqueda al aplicar filtro de categoría
+                currentSortOrder = null; // Quitar ordenamiento
+                currentPage = 1;
+                renderMedicineGrid();
+                categoryDropdown.classList.add('hidden'); // Cerrar dropdown después de seleccionar
+            }
+        });
+
+        // Cerrar el dropdown si se hace clic fuera
+        document.addEventListener('click', (event) => {
+            if (!openCategoryFilterBtn.contains(event.target) && !categoryDropdown.contains(event.target)) {
+                categoryDropdown.classList.add('hidden');
+            }
+        });
+
+
+        // --- Funciones de Paginación ---
+        function updatePaginationControls(totalPages) {
+            pageNumbersContainer.innerHTML = ''; 
+
+            // Determinar si debemos mostrar la paginación
+            let filteredMedicinesCount = medicines.length; // Empezamos con el total
+
+            // Considerar filtros actuales para el conteo de paginación
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            if (searchTerm) {
+                filteredMedicinesCount = medicines.filter(med => 
+                    med.nombre.toLowerCase().includes(searchTerm) ||
+                    med.descripcionCorta.toLowerCase().includes(searchTerm) ||
+                    (med.descripcionCompleta && med.descripcionCompleta.toLowerCase().includes(searchTerm)) ||
+                    (med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(searchTerm)) ||
+                    (med.presentacion && med.presentacion.toLowerCase().includes(searchTerm)) ||
+                    (med.laboratorio && med.laboratorio.toLowerCase().includes(searchTerm))
+                ).length;
+            }
+
+            if (currentCategoryFilter !== 'all') {
+                // Si también hay filtro de categoría, re-filtrar el conteo
+                filteredMedicinesCount = medicines.filter(med =>
+                    med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(currentCategoryFilter.toLowerCase()) &&
+                    // Asegurarse de que el filtro de búsqueda también se aplique si está activo
+                    (!searchTerm || 
+                        med.nombre.toLowerCase().includes(searchTerm) ||
+                        med.descripcionCorta.toLowerCase().includes(searchTerm) ||
+                        (med.descripcionCompleta && med.descripcionCompleta.toLowerCase().includes(searchTerm)) ||
+                        (med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(searchTerm)) ||
+                        (med.presentacion && med.presentacion.toLowerCase().includes(searchTerm)) ||
+                        (med.laboratorio && med.laboratorio.toLowerCase().includes(searchTerm))
+                    )
+                ).length;
+            }
+            
+            const calculatedTotalPages = Math.ceil(filteredMedicinesCount / ITEMS_PER_PAGE);
+
+            if (calculatedTotalPages <= 1 && !searchTerm && currentCategoryFilter === 'all' && medicines.length <= ITEMS_PER_PAGE) { 
+                // Ocultar si solo hay una página y no hay búsqueda o filtro de categoría activos
+                // y el número total de medicamentos es menor o igual a los items por página.
+                paginationControls.classList.add('hidden');
+                return;
+            } else {
+                paginationControls.classList.remove('hidden');
+            }
+            
+            prevPageBtn.disabled = currentPage === 1;
+            nextPageBtn.disabled = currentPage === calculatedTotalPages;
+
+            for (let i = 1; i <= calculatedTotalPages; i++) {
+                const pageButton = document.createElement('button');
+                pageButton.textContent = i;
+                // Colores de paginación unificados con diagnósticos y exámenes
+                pageButton.className = 'px-3 py-1 rounded-md text-sm font-semibold transition duration-200';
+                if (i === currentPage) {
+                    pageButton.classList.add('bg-blue-600', 'text-white', 'hover:bg-blue-700');
+                    pageButton.classList.remove('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300'); 
+                } else {
+                    pageButton.classList.add('bg-gray-200', 'text-gray-700', 'hover:bg-gray-300');
+                }
+                pageButton.addEventListener('click', () => {
+                    currentPage = i;
+                    renderMedicineGrid();
+                });
+                pageNumbersContainer.appendChild(pageButton);
+            }
+        }
+
+        prevPageBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                renderMedicineGrid();
+            }
+        });
+
+        nextPageBtn.addEventListener('click', () => {
+            // Recalcular totalPages para el botón "Siguiente" basado en los filtros activos
+            let filteredMedicinesForPagination = [...medicines];
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            if (searchTerm) {
+                filteredMedicinesForPagination = filteredMedicinesForPagination.filter(med =>
+                    med.nombre.toLowerCase().includes(searchTerm) ||
+                    med.descripcionCorta.toLowerCase().includes(searchTerm) ||
+                    (med.descripcionCompleta && med.descripcionCompleta.toLowerCase().includes(searchTerm)) ||
+                    (med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(searchTerm)) ||
+                    (med.presentacion && med.presentacion.toLowerCase().includes(searchTerm)) ||
+                    (med.laboratorio && med.laboratorio.toLowerCase().includes(searchTerm))
+                );
+            }
+            if (currentCategoryFilter !== 'all') {
+                filteredMedicinesForPagination = filteredMedicinesForPagination.filter(med =>
+                    med.claseTerapeutica && med.claseTerapeutica.toLowerCase().includes(currentCategoryFilter.toLowerCase())
+                );
+            }
+
+            const totalPages = Math.ceil(filteredMedicinesForPagination.length / ITEMS_PER_PAGE);
+
+            if (currentPage < totalPages) {
+                currentPage++;
+                renderMedicineGrid();
+            }
+        });
+
+        // --- Funciones para el Modal de Detalles del Medicamento ---
+        window.showMedicineDetails = function(index) {
+            // Aseguramos que el índice es válido
+            if (index < 0 || index >= medicines.length) {
+                console.error("Índice de medicamento inválido para detalles:", index);
+                showToast("Error: No se pudo cargar los detalles del medicamento.", "error");
+                return;
+            }
+            const med = medicines[index];
+            if (!med) return;
+
+            detailModalTitle.textContent = med.nombre;
+            detailImage.src = med.imagenUrl;
+            detailImage.alt = med.nombre;
+            detailDescription.textContent = med.descripcionCompleta || med.descripcionCorta;
+            detailTherapeuticClass.textContent = med.claseTerapeutica || 'N/A';
+            detailPresentation.textContent = med.presentacion || 'N/A';
+            detailLaboratory.textContent = med.laboratorio || 'N/A';
+
+            if (med.notas) { 
+                detailNotes.textContent = `Notas: ${med.notas}`;
+                detailNotes.classList.remove('hidden');
+            } else {
+                detailNotes.classList.add('hidden');
+            }
+
+            editFromDetailBtn.onclick = () => {
+                closeDetailModal();
+                editMedicine(index); // Pasamos el originalIndex
+            };
+            deleteFromDetailBtn.onclick = () => {
+                closeDetailModal();
+                deleteMedicine(index); // Pasamos el originalIndex
+            };
+
+            detailModal.classList.remove('hidden');
+            detailModal.classList.add('flex');
+        }
+
+        function closeDetailModal() {
+            detailModal.classList.add('hidden');
+            detailModal.classList.remove('flex');
+        }
+
+        closeDetailModalBtn.addEventListener('click', closeDetailModal);
+
+        window.addEventListener('click', (event) => {
+            if (event.target == detailModal) {
+                closeDetailModal();
+            }
+        });
+
+        // --- Inicialización ---
+        document.addEventListener('DOMContentLoaded', () => {
+            renderMedicineGrid();
+        });
+    </script>
+
+</body>
+</html>
